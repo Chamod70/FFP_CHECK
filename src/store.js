@@ -12,7 +12,9 @@ const useStore = create(
         'WBT2': [],
         'INS': [],
         'EXT': [],
-        'RATE': []
+        'RATE': [],
+        'DATE': [],
+        'WBT UPT': []
       },
       ffpManualData: [],
       columnWidths: Array(47).fill(120),
@@ -28,7 +30,10 @@ const useStore = create(
       setColumnWidths: (widths) => set({ columnWidths: widths }),
       
       clearAllData: () => set({ 
-        masterData: { 'H.COMP': [], 'MAST': [], 'WBT': [], 'WBT2': [], 'INS': [], 'EXT': [], 'RATE': [] },
+        masterData: { 
+          'H.COMP': [], 'MAST': [], 'WBT': [], 'WBT2': [], 
+          'INS': [], 'EXT': [], 'RATE': [], 'DATE': [], 'WBT UPT': [] 
+        },
         ffpManualData: [],
         columnWidths: Array(47).fill(120)
       })

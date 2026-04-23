@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useStore from '../store';
 import { parseTSV } from '../utils';
 
-const SHEET_NAMES = ['H.COMP', 'MAST', 'WBT', 'WBT2', 'INS', 'EXT', 'RATE'];
+const SHEET_NAMES = ['H.COMP', 'MAST', 'WBT', 'WBT2', 'INS', 'EXT', 'RATE', 'DATE', 'WBT UPT'];
 
 function DataEntryPage() {
   const [activeTab, setActiveTab] = useState(SHEET_NAMES[0]);
@@ -16,6 +16,41 @@ function DataEntryPage() {
     alert(`Data saved for ${activeTab}. Rows added: ${parsedData.length}`);
   };
 
+  const handleRunMacro = () => {
+    const wbtUpt = masterData['WBT UPT'] || [];
+    const currentWbt = masterData['WBT'] || [];
+    const currentDate = masterData['DATE'] || [];
+
+    if (wbtUpt.length < 2) {
+      alert("WBT UPT must have at least 2 rows (header + data) to run the update.");
+      return;
+    }
+
+    // 1. Copy data from WBT UPT (A2:AF) to WBT
+    // We take all rows from index 1 onwards
+    const rowsToCopy = wbtUpt.slice(1).map(row => row.slice(0, 32)); // A to AF
+    const updatedWbt = [...currentWbt, ...rowsToCopy];
+
+    // 2. Copy value from F9 in WBT UPT to DATE (last row, column A)
+    // F9 is row 9 (index 8), column F (index 5)
+    let f9Value = "";
+    if (wbtUpt[8] && wbtUpt[8][5]) {
+       f9Value = wbtUpt[8][5];
+    } else {
+       alert("Warning: Could not find value in F9 of WBT UPT. Continuing with empty value.");
+    }
+    
+    const updatedDate = [...currentDate, [f9Value]];
+
+    // Save back to store
+    // We update multiple keys. setMasterData only handles one at a time, but we can call it twice
+    // or we could add a bulk setter to store. For now, calling twice is fine.
+    setMasterData('WBT', updatedWbt);
+    setMasterData('DATE', updatedDate);
+
+    alert(`Successfully processed WBT UPT:\n- Added ${rowsToCopy.length} rows to WBT\n- Added date value "${f9Value}" to DATE`);
+  };
+
   const activeDataLength = masterData[activeTab]?.length || 0;
 
   return (
@@ -25,7 +60,7 @@ function DataEntryPage() {
         <p>Paste the raw data directly from your Excel sheets here using CTRL+V.</p>
       </div>
 
-      <div className="tabs">
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
         {SHEET_NAMES.map(name => (
           <button 
             key={name}
@@ -38,7 +73,14 @@ function DataEntryPage() {
       </div>
 
       <div className="card">
-        <h2 style={{marginTop: 0}}>Data for {activeTab}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+           <h2 style={{margin: 0}}>Data for {activeTab}</h2>
+           {activeTab === 'WBT UPT' && masterData['WBT UPT']?.length > 0 && (
+             <button className="btn btn-success" onClick={handleRunMacro}>
+                Run Copy Macro (UPT -> WBT & DATE)
+             </button>
+           )}
+        </div>
         <p className="text-muted" style={{marginBottom: '1rem'}}>
           Currently has <strong>{activeDataLength}</strong> rows of data. 
           Pasting new data here and saving will REPLACE the existing data for this sheet.
