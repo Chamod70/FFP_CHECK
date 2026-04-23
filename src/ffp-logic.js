@@ -9,25 +9,62 @@ export function vlookup(lookupValue, sheetData, lookupColIndex, returnColIndex) 
 }
 
 export const parseDate = (val) => {
-  if (!val || val === "." || val === "-") return NaN;
-  // If it's an Excel serial number (e.g. 45000+)
-  if (!isNaN(val) && parseFloat(val) > 20000) {
-    return Math.round((parseFloat(val) - 25569) * 86400 * 1000);
+  if (val === undefined || val === null || val === "" || val === "." || val === "-") return NaN;
+
+  // Handle number (Excel serial)
+  if (typeof val === 'number') {
+    if (val > 1000) return Math.round((val - 25569) * 86400 * 1000);
+    return NaN;
   }
-  // If it's a string date (e.g. DD/MM/YYYY)
-  if (typeof val === 'string' && val.includes('/')) {
-    const parts = val.split('/');
+
+  let str = String(val).trim();
+  
+  // Handle string that is a number (Excel serial in string form)
+  if (!isNaN(str) && str !== "" && parseFloat(str) > 1000) {
+    return Math.round((parseFloat(str) - 25569) * 86400 * 1000);
+  }
+
+  // Handle formats like DD/MM/YYYY or MM/DD/YYYY
+  if (str.includes('/')) {
+    const parts = str.split('/');
     if (parts.length === 3) {
-      // Handle DD/MM/YYYY
-      const d = new Date(parts[2], parts[1] - 1, parts[0]);
-      return d.getTime();
+      let p0 = parseInt(parts[0]);
+      let p1 = parseInt(parts[1]);
+      let p2 = parseInt(parts[2]);
+      if (p2 < 100) p2 += 2000;
+      
+      // Determine if it's MM/DD/YYYY or DD/MM/YYYY
+      // If p1 > 12, p1 must be the day, so it's MM/DD/YYYY
+      // If p0 > 12, p0 must be the day, so it's DD/MM/YYYY
+      if (p1 > 12) {
+        // MM/DD/YYYY
+        const d = new Date(p2, p0 - 1, p1);
+        if (!isNaN(d.getTime())) return d.getTime();
+      } else if (p0 > 12) {
+        // DD/MM/YYYY
+        const d = new Date(p2, p1 - 1, p0);
+        if (!isNaN(d.getTime())) return d.getTime();
+      } else {
+        // Ambiguous (both <= 12). 
+        // We'll try standard parsing first (which usually prefers MM/DD/YYYY in JS)
+        // But if that's not what we want, we can default. 
+        // Given the user's example 02/20/2025, they use MM/DD/YYYY.
+        // However, 11/8/2022 might be DD/MM/YYYY.
+        // Let's try standard parsing first.
+        let d = new Date(str);
+        if (!isNaN(d.getTime())) return d.getTime();
+        
+        // Final fallback: assume DD/MM/YYYY for SL/British compatibility
+        d = new Date(p2, p1 - 1, p0);
+        if (!isNaN(d.getTime())) return d.getTime();
+      }
     }
   }
-  // Fallback to standard JS parsing
-  const d = new Date(val);
+
+  // Fallback to standard JS parsing for other formats (YYYY-MM-DD, etc.)
+  const d = new Date(str);
   return d.getTime();
 };
-
 export function maxifs(maxRangeCol, criteriaRangeCol, criteriaValue, sheetData) {
   if (!sheetData) return "";
   let maxTime = -Infinity;
@@ -69,16 +106,20 @@ export function sumifs_ins(insSheetData, valL, valA) {
   let found = false;
   
   const targetTime = parseDate(valA);
+  const targetPlot = String(valL || "").trim();
   
-  for (let i = 0; i < insSheetData.length; i++) {
-    let colE = String(insSheetData[i][4]).trim(); // Plot No (E=4)
-    let colC = insSheetData[i][2]; // Date (C=2)
-    let colI = parseFloat(insSheetData[i][8]); // Amount (I=8)
+  if (!targetPlot) return "";
 
-    if (colE === String(valL).trim()) {
-      let insTime = parseDate(colC);
-      
-      // Compare if INS date is after target date (valA)
+  for (let i = 0; i < insSheetData.length; i++) {
+    const row = insSheetData[i];
+    if (!row || row.length < 5) continue;
+
+    let colE = String(row[4] || "").trim(); // Plot No (E=4)
+    if (colE === targetPlot) {
+      let insTime = parseDate(row[2]); // Date (C=2)
+      let colI = parseFloat(String(row[8] || "0").replace(/,/g, '')); // Amount (I=8)
+
+      // Compare dates: sum if INS date is strictly AFTER target date
       if (!isNaN(insTime) && !isNaN(targetTime)) {
         if (insTime > targetTime) {
           if (!isNaN(colI)) {
