@@ -12,7 +12,7 @@ function App() {
         <aside className="sidebar">
           <div className="sidebar-header">
             <h2>FFP System</h2>
-            <p>v2.0 (No Excel Upload)</p>
+            <p>v3.0 (With Excel Upload)</p>
           </div>
           <nav className="sidebar-nav">
             <NavLink to="/ffp" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
