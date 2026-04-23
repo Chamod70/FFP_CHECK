@@ -77,7 +77,7 @@ function DataEntryPage() {
            <h2 style={{margin: 0}}>Data for {activeTab}</h2>
            {activeTab === 'WBT UPT' && masterData['WBT UPT']?.length > 0 && (
              <button className="btn btn-success" onClick={handleRunMacro}>
-                Run Copy Macro (UPT -> WBT & DATE)
+                Run Copy Macro (UPT to WBT and DATE)
              </button>
            )}
         </div>
