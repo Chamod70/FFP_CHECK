@@ -52,6 +52,7 @@ function DataEntryPage() {
   };
 
   const activeDataLength = masterData[activeTab]?.length || 0;
+  const showMacroButton = activeTab === 'WBT UPT' && activeDataLength > 0;
 
   return (
     <div className="page-container">
@@ -75,7 +76,7 @@ function DataEntryPage() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
            <h2 style={{margin: 0}}>Data for {activeTab}</h2>
-           {activeTab === 'WBT UPT' && masterData['WBT UPT']?.length > 0 && (
+           {showMacroButton && (
              <button className="btn btn-success" onClick={handleRunMacro}>
                 Run Copy Macro (UPT to WBT and DATE)
              </button>

@@ -208,6 +208,8 @@ function FFPPage() {
   // Count of non-empty plot numbers
   const plotCount = ffpManualData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
 
+  const isEmpty = liveData.length === 0;
+
   return (
     <div className="page-container" style={{maxWidth: '100%', padding: '1rem'}}>
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
