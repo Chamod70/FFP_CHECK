@@ -9,7 +9,9 @@ export function vlookup(lookupValue, sheetData, lookupColIndex, returnColIndex) 
 }
 
 export const parseDate = (val) => {
-  if (val === undefined || val === null || val === "" || val === "." || val === "-") return NaN;
+  if (val === undefined || val === null) return NaN;
+  let str = String(val).trim();
+  if (str === "" || str === "." || str === "-" || str === "0") return NaN;
 
   // Handle number (Excel serial)
   if (typeof val === 'number') {
@@ -17,7 +19,8 @@ export const parseDate = (val) => {
     return NaN;
   }
 
-  let str = String(val).trim();
+  // Remove leading symbols like - if they are part of a date string (e.g. -11/8/2022)
+  if (str.startsWith('-')) str = str.substring(1).trim();
   
   // Handle string that is a number (Excel serial in string form)
   if (!isNaN(str) && str !== "" && parseFloat(str) > 1000) {
@@ -31,11 +34,11 @@ export const parseDate = (val) => {
       let p0 = parseInt(parts[0]);
       let p1 = parseInt(parts[1]);
       let p2 = parseInt(parts[2]);
+      if (isNaN(p0) || isNaN(p1) || isNaN(p2)) return NaN;
+
       if (p2 < 100) p2 += 2000;
       
       // Determine if it's MM/DD/YYYY or DD/MM/YYYY
-      // If p1 > 12, p1 must be the day, so it's MM/DD/YYYY
-      // If p0 > 12, p0 must be the day, so it's DD/MM/YYYY
       if (p1 > 12) {
         // MM/DD/YYYY
         const d = new Date(p2, p0 - 1, p1);
@@ -45,23 +48,18 @@ export const parseDate = (val) => {
         const d = new Date(p2, p1 - 1, p0);
         if (!isNaN(d.getTime())) return d.getTime();
       } else {
-        // Ambiguous (both <= 12). 
-        // We'll try standard parsing first (which usually prefers MM/DD/YYYY in JS)
-        // But if that's not what we want, we can default. 
-        // Given the user's example 02/20/2025, they use MM/DD/YYYY.
-        // However, 11/8/2022 might be DD/MM/YYYY.
-        // Let's try standard parsing first.
+        // Ambiguous. Try standard parsing (MM/DD/YYYY) first
         let d = new Date(str);
         if (!isNaN(d.getTime())) return d.getTime();
         
-        // Final fallback: assume DD/MM/YYYY for SL/British compatibility
+        // Final fallback: assume DD/MM/YYYY
         d = new Date(p2, p1 - 1, p0);
         if (!isNaN(d.getTime())) return d.getTime();
       }
     }
   }
 
-  // Fallback to standard JS parsing for other formats (YYYY-MM-DD, etc.)
+  // Fallback to standard JS parsing
   const d = new Date(str);
   return d.getTime();
 };
@@ -221,7 +219,7 @@ export const evaluateRow = (row, sheets) => {
   let deductions = num(r[27]) + num(r[28]) + num(r[29]) + num(r[30]) + num(r[31]) + num(r[32]) + (r[33] === "MA" ? 0 : num(r[33])) + num(r[34]) + num(r[35]) + num(r[36]);
   r[37] = manual[37] !== "" ? manual[37] : (((num(r[24]) + num(r[25]) + num(r[26])) - deductions) || ""); // AL
   
-  r[38] = manual[38] !== "" ? manual[38] : sumifs_ins(ins, L, r[0]); // AM
+  r[38] = sumifs_ins(ins, L, r[0]); // AM
   
   // AN:AQ (39-42) unchanged
   // AR:AT (43-45) unchanged just in case
