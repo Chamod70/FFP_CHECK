@@ -66,6 +66,29 @@ function FFPPage() {
      return parsed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const [columnWidths, setColumnWidths] = useState(Array(47).fill(120));
+
+  const startResizing = (index, e) => {
+    e.preventDefault();
+    const startX = e.pageX;
+    const startWidth = columnWidths[index];
+
+    const onMouseMove = (moveEvent) => {
+      const newWidth = startWidth + (moveEvent.pageX - startX);
+      const updatedWidths = [...columnWidths];
+      updatedWidths[index] = Math.max(50, newWidth);
+      setColumnWidths(updatedWidths);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
   // Compute live data 
   const liveData = ffpManualData.map(manualRow => {
      let newRow = [...manualRow];
@@ -194,16 +217,29 @@ function FFPPage() {
       </div>
 
       <div className="table-container" style={{maxHeight: '82vh', overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
-         <table>
+         <table style={{ tableLayout: 'fixed', width: 'auto' }}>
             <thead>
                <tr>
-                  <th style={{position: 'sticky', left: 0, zIndex: 20}}>Action</th>
+                  <th style={{position: 'sticky', left: 0, zIndex: 20, width: '60px'}}>Action</th>
                   {COL_NAMES.map((col, i) => {
                     let displayName = col;
                     if (i === 11) displayName = "Plot No (L)";
                     return (
-                      <th key={i} style={CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}}>
-                        {displayName}
+                      <th 
+                        key={i} 
+                        style={{
+                          ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
+                          width: `${columnWidths[i]}px`,
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                          {displayName}
+                        </div>
+                        <div 
+                          onMouseDown={(e) => startResizing(i, e)}
+                          className="col-resizer"
+                        />
                       </th>
                     );
                   })}
@@ -226,7 +262,10 @@ function FFPPage() {
                        if (cellVal === undefined || cellVal === null) cellVal = "";
 
                        return (
-                          <td key={cIndex} style={isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {}}>
+                          <td key={cIndex} style={{
+                            ...(isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {}),
+                            width: `${columnWidths[cIndex]}px`
+                          }}>
                              <input 
                                 id={`cell-${rIndex}-${cIndex}`}
                                 type="text" 
