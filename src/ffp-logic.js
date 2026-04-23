@@ -19,50 +19,85 @@ export const parseDate = (val) => {
     return NaN;
   }
 
-  // Remove leading symbols like - if they are part of a date string (e.g. -11/8/2022)
-  if (str.startsWith('-')) str = str.substring(1).trim();
-  
   // Handle string that is a number (Excel serial in string form)
-  if (!isNaN(str) && str !== "" && parseFloat(str) > 1000) {
-    return Math.round((parseFloat(str) - 25569) * 86400 * 1000);
+  if (!isNaN(str) && !str.includes('/') && !str.includes('-')) {
+    let p = parseFloat(str);
+    if (p > 1000) return Math.round((p - 25569) * 86400 * 1000);
   }
 
-  // Handle formats like DD/MM/YYYY or MM/DD/YYYY
+  // Remove leading - if present
+  if (str.startsWith('-')) str = str.substring(1).trim();
+
+  // Manual parse for DD/MM/YYYY or MM/DD/YYYY
   if (str.includes('/')) {
     const parts = str.split('/');
     if (parts.length === 3) {
       let p0 = parseInt(parts[0]);
       let p1 = parseInt(parts[1]);
       let p2 = parseInt(parts[2]);
-      if (isNaN(p0) || isNaN(p1) || isNaN(p2)) return NaN;
-
-      if (p2 < 100) p2 += 2000;
-      
-      // Determine if it's MM/DD/YYYY or DD/MM/YYYY
-      if (p1 > 12) {
-        // MM/DD/YYYY
-        const d = new Date(p2, p0 - 1, p1);
-        if (!isNaN(d.getTime())) return d.getTime();
-      } else if (p0 > 12) {
-        // DD/MM/YYYY
-        const d = new Date(p2, p1 - 1, p0);
-        if (!isNaN(d.getTime())) return d.getTime();
-      } else {
-        // Ambiguous. Try standard parsing (MM/DD/YYYY) first
-        let d = new Date(str);
-        if (!isNaN(d.getTime())) return d.getTime();
+      if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+        if (p2 < 100) p2 += 2000;
         
-        // Final fallback: assume DD/MM/YYYY
-        d = new Date(p2, p1 - 1, p0);
-        if (!isNaN(d.getTime())) return d.getTime();
+        // If second part is > 12, it's definitely the day: MM/DD/YYYY
+        if (p1 > 12) {
+          const d = new Date(p2, p0 - 1, p1);
+          if (!isNaN(d.getTime())) return d.getTime();
+        } 
+        // If first part is > 12, it's definitely the day: DD/MM/YYYY
+        else if (p0 > 12) {
+          const d = new Date(p2, p1 - 1, p0);
+          if (!isNaN(d.getTime())) return d.getTime();
+        } 
+        // Ambiguous. 11/8/2022. Try MM/DD/YYYY first as user uses 2/20/2025
+        else {
+          let d = new Date(p2, p0 - 1, p1);
+          if (!isNaN(d.getTime())) return d.getTime();
+        }
       }
     }
   }
 
-  // Fallback to standard JS parsing
   const d = new Date(str);
   return d.getTime();
 };
+
+export const toYYYYMMDD = (val) => {
+  const time = parseDate(val);
+  if (isNaN(time)) return null;
+  const d = new Date(time);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return parseInt(`${y}${m}${day}`);
+};
+
+export function sumifs_ins(insSheetData, valL, valA) {
+  if (!insSheetData || !Array.isArray(insSheetData)) return 0;
+  
+  let sum = 0;
+  const targetPlot = String(valL || "").trim().toUpperCase();
+  const targetDateNum = toYYYYMMDD(valA);
+  
+  if (!targetPlot || targetDateNum === null) return 0;
+
+  for (let i = 0; i < insSheetData.length; i++) {
+    const row = insSheetData[i];
+    if (!Array.isArray(row) || row.length < 9) continue;
+
+    let colE = String(row[4] || "").trim().toUpperCase(); // Plot No (E=4)
+    if (colE === targetPlot) {
+      let insDateNum = toYYYYMMDD(row[2]); // Date (C=2)
+      let amount = parseFloat(String(row[8] || "0").replace(/,/g, '')) || 0;
+
+      // Sum only if INS date is strictly AFTER target date
+      if (insDateNum !== null && insDateNum > targetDateNum) {
+        sum += amount;
+      }
+    }
+  }
+  return sum;
+}
+
 export function maxifs(maxRangeCol, criteriaRangeCol, criteriaValue, sheetData) {
   if (!sheetData) return "";
   let maxTime = -Infinity;
@@ -96,51 +131,6 @@ export function sumif(criteriaRangeCol, criteriaValue, sumRangeCol, sheetData) {
     }
   }
   return found ? sum : 0;
-}
-
-export const toYYYYMMDD = (val) => {
-  const time = parseDate(val);
-  if (isNaN(time)) return null;
-  const d = new Date(time);
-  // Use UTC components to avoid timezone shifts
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return parseInt(`${y}${m}${day}`);
-};
-
-export function sumifs_ins(insSheetData, valL, valA) {
-  if (!insSheetData || !Array.isArray(insSheetData)) return 0;
-  
-  let sum = 0;
-  let found = false;
-  
-  const targetDateNum = toYYYYMMDD(valA);
-  const targetPlot = String(valL || "").trim().toUpperCase();
-  
-  if (!targetPlot || targetDateNum === null) return 0;
-
-  for (let i = 0; i < insSheetData.length; i++) {
-    const row = insSheetData[i];
-    // Skip if row is not an array or too short (needs at least index 8 for col I)
-    if (!Array.isArray(row) || row.length < 9) continue;
-
-    let colE = String(row[4] || "").trim().toUpperCase(); // Plot No (E=4)
-    if (colE === targetPlot) {
-      let insDateNum = toYYYYMMDD(row[2]); // Date (C=2)
-      let colIStr = String(row[8] || "0").replace(/,/g, '').trim();
-      let colI = parseFloat(colIStr); // Amount (I=8)
-
-      // Compare YYYYMMDD integers: sum if INS date is strictly AFTER target date
-      if (insDateNum !== null && insDateNum > targetDateNum) {
-        if (!isNaN(colI)) {
-          sum += colI;
-          found = true;
-        }
-      }
-    }
-  }
-  return sum || 0;
 }
 
 // Convert Excel serial date to readable string
