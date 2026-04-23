@@ -217,7 +217,11 @@ function FFPPage() {
       </div>
 
       <div className="table-container" style={{maxHeight: '82vh', overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
-         <table style={{ tableLayout: 'fixed', width: 'auto' }}>
+         <table style={{ 
+            tableLayout: 'fixed', 
+            width: `${columnWidths.reduce((a, b) => a + b, 0) + 60}px`,
+            borderCollapse: 'collapse'
+         }}>
             <thead>
                <tr>
                   <th style={{position: 'sticky', left: 0, zIndex: 20, width: '60px'}}>Action</th>
