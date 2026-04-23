@@ -8,35 +8,35 @@ export function vlookup(lookupValue, sheetData, lookupColIndex, returnColIndex) 
   return "";
 }
 
+export const parseDate = (val) => {
+  if (!val || val === "." || val === "-") return NaN;
+  // If it's an Excel serial number (e.g. 45000+)
+  if (!isNaN(val) && parseFloat(val) > 20000) {
+    return Math.round((parseFloat(val) - 25569) * 86400 * 1000);
+  }
+  // If it's a string date (e.g. DD/MM/YYYY)
+  if (typeof val === 'string' && val.includes('/')) {
+    const parts = val.split('/');
+    if (parts.length === 3) {
+      // Handle DD/MM/YYYY
+      const d = new Date(parts[2], parts[1] - 1, parts[0]);
+      return d.getTime();
+    }
+  }
+  // Fallback to standard JS parsing
+  const d = new Date(val);
+  return d.getTime();
+};
+
 export function maxifs(maxRangeCol, criteriaRangeCol, criteriaValue, sheetData) {
   if (!sheetData) return "";
   let maxTime = -Infinity;
   let found = false;
   let resultValue = "";
 
-  const parseToTime = (val) => {
-    if (!val) return NaN;
-    // If it's an Excel serial number (e.g. 45000+)
-    if (!isNaN(val) && parseFloat(val) > 20000) {
-      return (parseFloat(val) - 25569) * 86400 * 1000;
-    }
-    // If it's a string date (e.g. DD/MM/YYYY)
-    if (typeof val === 'string' && val.includes('/')) {
-      const parts = val.split('/');
-      if (parts.length === 3) {
-        // Handle DD/MM/YYYY
-        const d = new Date(parts[2], parts[1] - 1, parts[0]);
-        return d.getTime();
-      }
-    }
-    // Fallback to standard JS parsing
-    const d = new Date(val);
-    return d.getTime();
-  };
-
   for (let i = 0; i < sheetData.length; i++) {
     if (String(sheetData[i][criteriaRangeCol]).trim() === String(criteriaValue).trim()) {
-      let time = parseToTime(sheetData[i][maxRangeCol]);
+      let time = parseDate(sheetData[i][maxRangeCol]);
       if (!isNaN(time) && time > maxTime) {
         maxTime = time;
         resultValue = sheetData[i][maxRangeCol];
@@ -67,16 +67,24 @@ export function sumifs_ins(insSheetData, valL, valA) {
   if (!insSheetData) return "";
   let sum = 0;
   let found = false;
+  
+  const targetTime = parseDate(valA);
+  
   for (let i = 0; i < insSheetData.length; i++) {
-    let colE = insSheetData[i][4]; // E=4
-    let colC = insSheetData[i][2]; // C=2
-    let colI = parseFloat(insSheetData[i][8]); // I=8
+    let colE = String(insSheetData[i][4]).trim(); // Plot No (E=4)
+    let colC = insSheetData[i][2]; // Date (C=2)
+    let colI = parseFloat(insSheetData[i][8]); // Amount (I=8)
 
-    if (colE === valL) {
-      if (colC > valA) {
-        if (!isNaN(colI)) {
-          sum += colI;
-          found = true;
+    if (colE === String(valL).trim()) {
+      let insTime = parseDate(colC);
+      
+      // Compare if INS date is after target date (valA)
+      if (!isNaN(insTime) && !isNaN(targetTime)) {
+        if (insTime > targetTime) {
+          if (!isNaN(colI)) {
+            sum += colI;
+            found = true;
+          }
         }
       }
     }
