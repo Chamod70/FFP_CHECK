@@ -160,19 +160,24 @@ function FFPPage() {
   };
 
   const handleCopyAll = () => {
-     const formattedData = liveData.map(row => 
-        row.map((cell, cIdx) => {
-           if (cIdx >= 15 && cIdx <= 38) {
+     const formattedData = liveData.map(row => {
+        // Slice the row to only include columns from index 4 (Harvesting Date) to 41 (Total Loan)
+        const slicedRow = row.slice(4, 42);
+        return slicedRow.map((cell, idx) => {
+           // The original indices were offset by 4. 
+           // Original 15..38 are now 11..34 in the sliced row.
+           const originalIdx = idx + 4;
+           if (originalIdx >= 15 && originalIdx <= 38) {
               let strVal = String(cell !== undefined && cell !== null ? cell : "");
               let parsed = parseFloat(strVal.replace(/,/g, ''));
               if (!isNaN(parsed)) {
-                 const decimals = cIdx === 15 ? 4 : 2;
+                 const decimals = originalIdx === 15 ? 4 : 2;
                  return parsed.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
               }
            }
            return cell;
-        })
-     );
+        });
+     });
      const tsv = arrayToTSV(formattedData);
      navigator.clipboard.writeText(tsv).then(() => {
         alert("Copied directly to clipboard! You can paste in Excel.");
