@@ -300,13 +300,12 @@ function FFPPage() {
                                 onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
                                 onBlur={() => setFocusedCell(null)}
                                 className="cell-input"
-                                readOnly={isCalculated}
                                 style={{
                                    textAlign: cIndex >= 15 && cIndex <= 38 ? 'right' : 'left',
                                    outline: 'none',
                                    boxShadow: 'none',
                                    color: isCalculated ? 'var(--accent)' : '#fff',
-                                   cursor: isCalculated ? 'default' : 'text'
+                                   cursor: 'text'
                                 }}
                              />
                           </td>
