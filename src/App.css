@@ -191,6 +191,8 @@ table {
   width: auto; /* Allow table to grow beyond container width */
   border-collapse: collapse;
   white-space: nowrap;
+  font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+  font-size: 11pt;
 }
 
 th {
@@ -198,11 +200,11 @@ th {
 }
 
 th, td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
-  font-size: 0.85rem;
+  font-size: 11pt;
   overflow: hidden;
   text-overflow: ellipsis;
 }
