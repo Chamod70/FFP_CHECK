@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import useStore from '../store';
 import { parseTSV } from '../utils';
+import * as XLSX from 'xlsx';
 
 const SHEET_NAMES = ['H.COMP', 'MAST', 'WBT', 'WBT2', 'INS', 'EXT', 'RATE', 'DATE', 'WBT UPT'];
 
@@ -8,12 +9,46 @@ function DataEntryPage() {
   const [activeTab, setActiveTab] = useState(SHEET_NAMES[0]);
   const [inputText, setInputText] = useState('');
   const { masterData, setMasterData } = useStore();
+  const fileInputRef = useRef(null);
 
   const handleSave = () => {
     const parsedData = parseTSV(inputText);
     setMasterData(activeTab, parsedData);
     setInputText('');
     alert(`Data saved for ${activeTab}. Rows added: ${parsedData.length}`);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Get the first sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to 2D array
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (json.length > 0) {
+          setMasterData(activeTab, json);
+          alert(`Success! Uploaded ${json.length} rows to ${activeTab} from file "${file.name}"`);
+        } else {
+          alert("The file appears to be empty.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to parse Excel file. Please make sure it's a valid .xlsx or .xlsm file.");
+      }
+      // Reset input so the same file can be uploaded again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const handleRunMacro = () => {
@@ -74,13 +109,25 @@ function DataEntryPage() {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
            <h2 style={{margin: 0}}>Data for {activeTab}</h2>
-           {showMacroButton && (
-             <button className="btn btn-success" onClick={handleRunMacro}>
-                Run Copy Macro (UPT to WBT and DATE)
-             </button>
-           )}
+           <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                accept=".xlsx, .xlsm, .xls, .csv" 
+                onChange={handleFileUpload}
+              />
+              <button className="btn" onClick={() => fileInputRef.current?.click()} style={{ background: '#6366f1' }}>
+                 Upload Excel/File to {activeTab}
+              </button>
+              {showMacroButton && (
+                <button className="btn btn-success" onClick={handleRunMacro}>
+                   Run Copy Macro (UPT to WBT and DATE)
+                </button>
+              )}
+           </div>
         </div>
         <p className="text-muted" style={{marginBottom: '1rem'}}>
           Currently has <strong>{activeDataLength}</strong> rows of data. 
