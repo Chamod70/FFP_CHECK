@@ -6,7 +6,7 @@ import { arrayToTSV } from '../utils';
 
 const rawHeaders = [
   "COM /DATE", "PART", "ACC", "D", "Harvesting Date", "Sheet No", "Crop Cycle", "Date", 
-  "Voucher No", "Cheque No", "Confim Status", "Plot No", "Farmer", "AGENT", "NIC", 
+  "Voucher No", "Cheque No", "Confirm Status", "Plot No", "Farmer", "AGENT", "NIC", 
   "Extent(HA)", "INT RATE %", "Seed", "S", "T", "U", "24-25", "25-26", "Total", 
   "Cane value", "Development Incentive", "Temporary Incentive", "Rec Cane Advance", 
   "MTL Rec", "STL Recovery", "Cash Advance", "Festivel Advance", "Load Up", 
@@ -112,12 +112,9 @@ function FFPPage() {
        return;
     }
 
-    // Skip over calculated columns if moving left/right
+    // Support navigation through all columns (including calculated ones)
     if (newC !== cIndex) {
-      while (newC >= 0 && newC < 47 && CALCULATED_COLS.includes(newC)) {
-        if (e.key === 'ArrowLeft') newC -= 1;
-        else newC += 1;
-      }
+      // Navigation skip logic removed
     }
 
     // Move to next cell if within bounds
@@ -242,17 +239,20 @@ function FFPPage() {
                                 onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
                                 onBlur={() => setFocusedCell(null)}
                                 className="cell-input"
+                                readOnly={isCalculated}
                                 style={{
                                    textAlign: cIndex >= 15 && cIndex <= 38 ? 'right' : 'left',
                                    outline: 'none',
-                                   boxShadow: 'none'
+                                   boxShadow: 'none',
+                                   color: isCalculated ? 'var(--accent)' : '#fff',
+                                   cursor: isCalculated ? 'default' : 'text'
                                 }}
                              />
                           </td>
                        );
                     })}
                   </tr>
-               ))}
+                ))}
                {liveData.length === 0 && (
                  <tr>
                    <td colSpan={100} style={{textAlign: 'center', padding: '3rem'}}>

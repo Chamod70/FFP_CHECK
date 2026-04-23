@@ -26,7 +26,7 @@ body {
 }
 
 .sidebar {
-  width: 260px;
+  width: 180px;
   background: var(--card-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -34,7 +34,7 @@ body {
 }
 
 .sidebar-header {
-  padding: 2rem 1.5rem;
+  padding: 1.5rem 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
