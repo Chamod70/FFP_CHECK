@@ -205,11 +205,26 @@ function FFPPage() {
      }
   };
 
+  // Count of non-empty plot numbers
+  const plotCount = ffpManualData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
+
   return (
     <div className="page-container" style={{maxWidth: '100%', padding: '1rem'}}>
-      <div className="header">
-         <h1 style={{marginTop: 0}}>FFP Live Dashboard</h1>
-         <p>Type directly into the non-calculated cells (like L for Farmer ID), and it calculates everything instantly.</p>
+      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+         <div>
+            <h1 style={{marginTop: 0}}>FFP Live Dashboard</h1>
+            <p>Type directly into the non-calculated cells (like L for Farmer ID), and it calculates everything instantly.</p>
+         </div>
+         <div className="stats-badge" style={{
+            background: 'rgba(56, 189, 248, 0.1)',
+            border: '1px solid var(--accent)',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '0.5rem',
+            textAlign: 'center'
+         }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.25rem' }}>Total Plots</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>{plotCount}</div>
+         </div>
       </div>
       
       <div className="actions-bar" style={{display: 'flex', gap: '1rem', marginBottom: '1rem'}}>
