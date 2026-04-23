@@ -30,7 +30,7 @@ const CALCULATED_COLS = [
 ];
 
 function FFPPage() {
-  const { masterData, ffpManualData, setFfpData } = useStore();
+  const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
 
   const formatCell = (rIndex, cIndex, val) => {
@@ -65,8 +65,6 @@ function FFPPage() {
 
      return parsed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
-
-  const [columnWidths, setColumnWidths] = useState(Array(47).fill(120));
 
   const startResizing = (index, e) => {
     e.preventDefault();

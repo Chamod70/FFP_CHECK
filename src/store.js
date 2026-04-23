@@ -15,6 +15,7 @@ const useStore = create(
         'RATE': []
       },
       ffpManualData: [],
+      columnWidths: Array(47).fill(120),
       
       setMasterData: (sheetName, data) => set((state) => ({
         masterData: {
@@ -24,10 +25,12 @@ const useStore = create(
       })),
 
       setFfpData: (data) => set({ ffpManualData: data }),
+      setColumnWidths: (widths) => set({ columnWidths: widths }),
       
       clearAllData: () => set({ 
         masterData: { 'H.COMP': [], 'MAST': [], 'WBT': [], 'WBT2': [], 'INS': [], 'EXT': [], 'RATE': [] },
-        ffpManualData: [] 
+        ffpManualData: [],
+        columnWidths: Array(47).fill(120)
       })
     }),
     {
