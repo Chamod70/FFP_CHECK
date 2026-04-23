@@ -98,15 +98,25 @@ export function sumif(criteriaRangeCol, criteriaValue, sumRangeCol, sheetData) {
   return found ? sum : 0;
 }
 
+export const toYYYYMMDD = (val) => {
+  const time = parseDate(val);
+  if (isNaN(time)) return null;
+  const d = new Date(time);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return parseInt(`${y}${m}${day}`);
+};
+
 export function sumifs_ins(insSheetData, valL, valA) {
   if (!insSheetData) return "";
   let sum = 0;
   let found = false;
   
-  const targetTime = parseDate(valA);
+  const targetDateNum = toYYYYMMDD(valA);
   const targetPlot = String(valL || "").trim();
   
-  if (!targetPlot) return "";
+  if (!targetPlot || targetDateNum === null) return "";
 
   for (let i = 0; i < insSheetData.length; i++) {
     const row = insSheetData[i];
@@ -114,16 +124,14 @@ export function sumifs_ins(insSheetData, valL, valA) {
 
     let colE = String(row[4] || "").trim(); // Plot No (E=4)
     if (colE === targetPlot) {
-      let insTime = parseDate(row[2]); // Date (C=2)
+      let insDateNum = toYYYYMMDD(row[2]); // Date (C=2)
       let colI = parseFloat(String(row[8] || "0").replace(/,/g, '')); // Amount (I=8)
 
-      // Compare dates: sum if INS date is strictly AFTER target date
-      if (!isNaN(insTime) && !isNaN(targetTime)) {
-        if (insTime > targetTime) {
-          if (!isNaN(colI)) {
-            sum += colI;
-            found = true;
-          }
+      // Compare YYYYMMDD integers: sum if INS date is strictly AFTER target date
+      if (insDateNum !== null && insDateNum > targetDateNum) {
+        if (!isNaN(colI)) {
+          sum += colI;
+          found = true;
         }
       }
     }
