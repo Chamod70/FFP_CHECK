@@ -102,30 +102,34 @@ export const toYYYYMMDD = (val) => {
   const time = parseDate(val);
   if (isNaN(time)) return null;
   const d = new Date(time);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  // Use UTC components to avoid timezone shifts
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return parseInt(`${y}${m}${day}`);
 };
 
 export function sumifs_ins(insSheetData, valL, valA) {
-  if (!insSheetData) return "";
+  if (!insSheetData || !Array.isArray(insSheetData)) return 0;
+  
   let sum = 0;
   let found = false;
   
   const targetDateNum = toYYYYMMDD(valA);
-  const targetPlot = String(valL || "").trim();
+  const targetPlot = String(valL || "").trim().toUpperCase();
   
-  if (!targetPlot || targetDateNum === null) return "";
+  if (!targetPlot || targetDateNum === null) return 0;
 
   for (let i = 0; i < insSheetData.length; i++) {
     const row = insSheetData[i];
-    if (!row || row.length < 5) continue;
+    // Skip if row is not an array or too short (needs at least index 8 for col I)
+    if (!Array.isArray(row) || row.length < 9) continue;
 
-    let colE = String(row[4] || "").trim(); // Plot No (E=4)
+    let colE = String(row[4] || "").trim().toUpperCase(); // Plot No (E=4)
     if (colE === targetPlot) {
       let insDateNum = toYYYYMMDD(row[2]); // Date (C=2)
-      let colI = parseFloat(String(row[8] || "0").replace(/,/g, '')); // Amount (I=8)
+      let colIStr = String(row[8] || "0").replace(/,/g, '').trim();
+      let colI = parseFloat(colIStr); // Amount (I=8)
 
       // Compare YYYYMMDD integers: sum if INS date is strictly AFTER target date
       if (insDateNum !== null && insDateNum > targetDateNum) {
@@ -136,7 +140,7 @@ export function sumifs_ins(insSheetData, valL, valA) {
       }
     }
   }
-  return found ? sum : "";
+  return sum || 0;
 }
 
 // Convert Excel serial date to readable string
