@@ -30,8 +30,9 @@ const CALCULATED_COLS = [
 ];
 
 function FFPPage() {
-  const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths, customHeaders, setCustomHeader } = useStore();
+  const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
+  const [selectedCol, setSelectedCol] = useState(null);
 
   const formatCell = (rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
@@ -257,6 +258,21 @@ function FFPPage() {
          <button className="btn btn-danger" onClick={() => setFfpData([])} style={{background: '#ef4444'}}>Clear All</button>
       </div>
 
+      {selectedCol !== null && (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '4px', border: `1px solid var(--accent)`, marginBottom: '1rem' }}>
+           <span style={{fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 'bold', marginRight: '1rem'}}>
+             Align Column {selectedCol + 1} ({COL_NAMES[selectedCol]}):
+           </span>
+           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnAlignments && columnAlignments[selectedCol] === 'left' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'left')}>Left</button>
+           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnAlignments && columnAlignments[selectedCol] === 'center' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'center')}>Center</button>
+           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnAlignments || columnAlignments[selectedCol] === 'right' || !columnAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'right')}>Right</button>
+           <span style={{borderLeft: '1px solid var(--border-color)', height: '20px', margin: '0 0.5rem'}}></span>
+           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'top' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'top')}>Top</button>
+           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'middle' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'middle')}>Middle</button>
+           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnVerticalAlignments || columnVerticalAlignments[selectedCol] === 'bottom' || !columnVerticalAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'bottom')}>Bottom</button>
+        </div>
+      )}
+
       <div className="table-container" style={{maxHeight: '82vh', overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
          <table style={{ 
             tableLayout: 'fixed', 
@@ -275,11 +291,14 @@ function FFPPage() {
                     padding: 0
                   }}></th>
                   {COL_NAMES.map((_, i) => (
-                    <th key={`num-${i}`} style={{
-                      textAlign: 'right',
+                    <th key={`num-${i}`} 
+                        onClick={() => setSelectedCol(i)}
+                        style={{
+                      textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
+                      verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                       fontSize: '0.8rem',
-                      color: 'var(--accent)',
-                      background: 'rgba(0, 0, 0, 0.6)',
+                      color: selectedCol === i ? '#fff' : 'var(--accent)',
+                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0, 0, 0, 0.6)',
                       top: 0,
                       position: 'sticky',
                       zIndex: 30,
@@ -287,7 +306,8 @@ function FFPPage() {
                       padding: '4px 6px',
                       fontWeight: 'bold',
                       borderRight: '1px solid var(--border-color)',
-                      width: `${columnWidths[i]}px`
+                      width: `${columnWidths[i]}px`,
+                      cursor: 'pointer'
                     }}>
                       {i + 1}
                     </th>
@@ -308,14 +328,18 @@ function FFPPage() {
                     return (
                       <th 
                         key={i} 
+                        onClick={() => setSelectedCol(i)}
                         style={{
                           ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
                           width: `${columnWidths[i]}px`,
                           position: 'sticky',
                           top: '31px',
                           zIndex: 30,
-                          textAlign: 'right',
-                          paddingRight: '6px'
+                          textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
+                          verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
+                          paddingRight: '6px',
+                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : undefined,
+                          cursor: 'pointer'
                         }}
                       >
                         <div style={{ overflow: 'hidden', width: '100%' }}>
@@ -330,11 +354,12 @@ function FFPPage() {
                               color: 'inherit',
                               fontWeight: 'inherit',
                               width: '100%',
-                              textAlign: 'right',
+                              textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                               outline: 'none',
                               fontSize: 'inherit',
                               fontFamily: 'inherit',
-                              textOverflow: 'ellipsis'
+                              textOverflow: 'ellipsis',
+                              cursor: 'pointer'
                             }}
                           />
                         </div>
@@ -382,7 +407,8 @@ function FFPPage() {
                                 onBlur={() => setFocusedCell(null)}
                                 className="cell-input"
                                 style={{
-                                   textAlign: 'right',
+                                   textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
+                                   verticalAlign: columnVerticalAlignments && columnVerticalAlignments[cIndex] ? columnVerticalAlignments[cIndex] : 'bottom',
                                    outline: 'none',
                                    boxShadow: 'none',
                                    color: isCalculated ? 'var(--accent)' : '#fff',

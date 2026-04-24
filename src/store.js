@@ -19,6 +19,8 @@ const useStore = create(
       ffpManualData: [],
       columnWidths: Array(47).fill(120),
       customHeaders: {},
+      columnAlignments: {},
+      columnVerticalAlignments: {},
       
       setMasterData: (sheetName, data) => set((state) => ({
         masterData: {
@@ -32,6 +34,12 @@ const useStore = create(
       setCustomHeader: (index, value) => set((state) => ({
         customHeaders: { ...state.customHeaders, [index]: value }
       })),
+      setColumnAlignment: (index, alignment) => set((state) => ({
+        columnAlignments: { ...state.columnAlignments, [index]: alignment }
+      })),
+      setColumnVerticalAlignment: (index, alignment) => set((state) => ({
+        columnVerticalAlignments: { ...state.columnVerticalAlignments, [index]: alignment }
+      })),
       
       clearAllData: () => set({ 
         masterData: { 
@@ -40,7 +48,9 @@ const useStore = create(
         },
         ffpManualData: [],
         columnWidths: Array(47).fill(120),
-        customHeaders: {}
+        customHeaders: {},
+        columnAlignments: {},
+        columnVerticalAlignments: {}
       })
     }),
     {
