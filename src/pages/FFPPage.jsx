@@ -87,6 +87,27 @@ function FFPPage() {
     document.addEventListener('mouseup', onMouseUp);
   };
 
+  const autoFitColumn = (colIndex) => {
+    let maxLen = COL_NAMES[colIndex] ? String(COL_NAMES[colIndex]).length : 5;
+    // Also consider the "Plot No (L)" override
+    if (colIndex === 11) maxLen = "Plot No (L)".length;
+    
+    // Check all data rows for this column
+    liveData.forEach(row => {
+       const cell = row[colIndex];
+       if (cell !== undefined && cell !== null) {
+          const strLen = String(cell).length;
+          if (strLen > maxLen) maxLen = strLen;
+       }
+    });
+    
+    // Calculate new width: approx 9 pixels per character + 30px padding
+    const calculatedWidth = Math.max(50, Math.min(400, maxLen * 9 + 30));
+    const updatedWidths = [...columnWidths];
+    updatedWidths[colIndex] = calculatedWidth;
+    setColumnWidths(updatedWidths);
+  };
+
   // Compute live data 
   const liveData = ffpManualData.map(manualRow => {
      let newRow = [...manualRow];
@@ -265,7 +286,8 @@ function FFPPage() {
                       borderBottom: 'none',
                       padding: '4px 0',
                       fontWeight: 'bold',
-                      borderRight: '1px solid var(--border-color)'
+                      borderRight: '1px solid var(--border-color)',
+                      width: `${columnWidths[i]}px`
                     }}>
                       {i + 1}
                     </th>
@@ -299,6 +321,7 @@ function FFPPage() {
                         </div>
                         <div 
                           onMouseDown={(e) => startResizing(i, e)}
+                          onDoubleClick={() => autoFitColumn(i)}
                           className="col-resizer"
                         />
                       </th>
