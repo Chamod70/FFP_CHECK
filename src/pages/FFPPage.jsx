@@ -243,8 +243,42 @@ function FFPPage() {
             borderCollapse: 'collapse'
          }}>
             <thead>
+               <tr style={{ height: '25px' }}>
+                  <th style={{ 
+                    position: 'sticky', 
+                    left: 0, 
+                    zIndex: 35, 
+                    top: 0, 
+                    background: 'var(--card-bg)',
+                    borderBottom: 'none',
+                    padding: 0
+                  }}></th>
+                  {COL_NAMES.map((_, i) => (
+                    <th key={`num-${i}`} style={{
+                      textAlign: 'center',
+                      fontSize: '0.7rem',
+                      color: 'var(--accent)',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      top: 0,
+                      zIndex: 30,
+                      borderBottom: 'none',
+                      padding: '2px 0',
+                      fontWeight: 'bold',
+                      borderRight: '1px solid var(--border-color)'
+                    }}>
+                      {i + 1}
+                    </th>
+                  ))}
+               </tr>
                <tr>
-                  <th style={{position: 'sticky', left: 0, zIndex: 20, width: '60px'}}>Action</th>
+                  <th style={{
+                    position: 'sticky', 
+                    left: 0, 
+                    zIndex: 35, 
+                    top: '25px', 
+                    background: 'var(--card-bg)', 
+                    width: '60px'
+                  }}>Action</th>
                   {COL_NAMES.map((col, i) => {
                     let displayName = col;
                     if (i === 11) displayName = "Plot No (L)";
@@ -254,7 +288,9 @@ function FFPPage() {
                         style={{
                           ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
                           width: `${columnWidths[i]}px`,
-                          position: 'relative'
+                          position: 'sticky',
+                          top: '25px',
+                          zIndex: 30
                         }}
                       >
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
