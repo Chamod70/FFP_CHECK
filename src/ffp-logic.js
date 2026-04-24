@@ -200,8 +200,12 @@ export const evaluateRow = (row, sheets) => {
   let qVal = vlookup(L, rate, 1, 18); // Q (B=1, S=18)
   r[16] = manual[16] !== "" ? manual[16] : (qVal === 0 || qVal === "" ? "" : qVal);
   
-  // R:V (17-21) unchanged
-  r[22] = manual[22] !== "" ? manual[22] : (sumif(19, L, 24, wbt) / 1000 || ""); // W
+  // R:U (17-20) unchanged
+  // V (index 21) = SUMIF(WBT2!T:T, L, WBT2!Y:Y)/1000
+  const wbt2Sheet = sheets["WBT2"] || sheets["WBT 2"] || [];
+  r[21] = manual[21] !== "" ? manual[21] : (sumif(19, L, 24, wbt2Sheet) / 1000 || ""); // V (col 22) - SUMIF WBT2!T=L, sum WBT2!Y /1000
+
+  r[22] = manual[22] !== "" ? manual[22] : (sumif(19, L, 24, wbt) / 1000 || ""); // W (col 23)
   r[23] = manual[23] !== "" ? manual[23] : ((num(r[18]) + num(r[19]) + num(r[20]) + num(r[21]) + num(r[22])) || ""); // X = S+T+U+V+W
   
   r[24] = manual[24] !== "" ? manual[24] : (((num(r[19]) * 9150) + sumif(19, L, 25, wbt2) + sumif(19, L, 25, wbt)) || ""); // Y
