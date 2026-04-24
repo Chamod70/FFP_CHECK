@@ -382,7 +382,7 @@ function FFPPage() {
                                 onBlur={() => setFocusedCell(null)}
                                 className="cell-input"
                                 style={{
-                                   textAlign: cIndex >= 15 && cIndex <= 38 ? 'right' : 'left',
+                                   textAlign: 'right',
                                    outline: 'none',
                                    boxShadow: 'none',
                                    color: isCalculated ? 'var(--accent)' : '#fff',
