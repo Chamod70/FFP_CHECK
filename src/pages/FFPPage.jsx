@@ -256,13 +256,14 @@ function FFPPage() {
                   {COL_NAMES.map((_, i) => (
                     <th key={`num-${i}`} style={{
                       textAlign: 'center',
-                      fontSize: '0.7rem',
+                      fontSize: '0.8rem',
                       color: 'var(--accent)',
-                      background: 'rgba(15, 23, 42, 0.9)',
+                      background: 'rgba(0, 0, 0, 0.6)',
                       top: 0,
+                      position: 'sticky',
                       zIndex: 30,
                       borderBottom: 'none',
-                      padding: '2px 0',
+                      padding: '4px 0',
                       fontWeight: 'bold',
                       borderRight: '1px solid var(--border-color)'
                     }}>
@@ -275,7 +276,7 @@ function FFPPage() {
                     position: 'sticky', 
                     left: 0, 
                     zIndex: 35, 
-                    top: '25px', 
+                    top: '31px', 
                     background: 'var(--card-bg)', 
                     width: '60px'
                   }}>Action</th>
@@ -289,7 +290,7 @@ function FFPPage() {
                           ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
                           width: `${columnWidths[i]}px`,
                           position: 'sticky',
-                          top: '25px',
+                          top: '31px',
                           zIndex: 30
                         }}
                       >
