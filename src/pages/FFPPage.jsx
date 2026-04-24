@@ -89,25 +89,56 @@ function FFPPage() {
   };
 
   const autoFitColumn = (colIndex) => {
-    let maxLen = COL_NAMES[colIndex] ? String(COL_NAMES[colIndex]).length : 5;
-    // Also consider the "Plot No (L)" override
-    if (colIndex === 11) maxLen = "Plot No (L)".length;
-    
-    // Check all data rows for this column
-    liveData.forEach(row => {
-       const cell = row[colIndex];
-       if (cell !== undefined && cell !== null) {
-          const strLen = String(cell).length;
-          if (strLen > maxLen) maxLen = strLen;
-       }
+    // Use a hidden canvas to measure actual pixel widths — like Excel
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    // Match the table's font (11pt Calibri from App.css)
+    ctx.font = '11pt Calibri, Segoe UI, Arial, sans-serif';
+
+    // Measure the header text
+    const headerText = customHeaders && customHeaders[colIndex] !== undefined
+      ? String(customHeaders[colIndex])
+      : (colIndex === 11 ? 'Plot No (L)' : String(COL_NAMES[colIndex] || ''));
+    let maxWidth = ctx.measureText(headerText).width;
+
+    // Measure the formatted value of every data row
+    liveData.forEach((row, rIndex) => {
+      const raw = row[colIndex];
+      // Use formatCell logic: replicate display value
+      let displayed = '';
+      if (raw !== undefined && raw !== null) {
+        let strValue = String(raw).trim().replace(/\.+$/, '').trim();
+        if (/^[0.\s\-]*$/.test(strValue) && strValue !== '') {
+          displayed = '';
+        } else if (strValue === 'No' || strValue === 'RATE') {
+          displayed = '';
+        } else if (colIndex >= 15 && colIndex <= 38) {
+          let cleanVal = strValue.replace(/,/g, '');
+          let parsed = parseFloat(cleanVal);
+          if (!isNaN(parsed) && parsed !== 0) {
+            const decimals = colIndex === 15 ? 4 : 2;
+            displayed = parsed.toLocaleString('en-US', {
+              minimumFractionDigits: decimals,
+              maximumFractionDigits: decimals
+            });
+          }
+        } else {
+          displayed = strValue;
+        }
+      }
+      if (displayed) {
+        const w = ctx.measureText(displayed).width;
+        if (w > maxWidth) maxWidth = w;
+      }
     });
-    
-    // Calculate new width: approx 9 pixels per character + 30px padding
-    const calculatedWidth = Math.max(50, Math.min(400, maxLen * 9 + 30));
+
+    // Add padding (left + right = 20px) and a small buffer
+    const calculatedWidth = Math.max(50, Math.min(500, Math.ceil(maxWidth) + 24));
     const updatedWidths = [...columnWidths];
     updatedWidths[colIndex] = calculatedWidth;
     setColumnWidths(updatedWidths);
   };
+
 
   // Compute live data 
   const liveData = ffpManualData.map(manualRow => {
