@@ -301,6 +301,7 @@ function FFPPage() {
            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'top' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'top')}>Top</button>
            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'middle' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'middle')}>Middle</button>
            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnVerticalAlignments || columnVerticalAlignments[selectedCol] === 'bottom' || !columnVerticalAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'bottom')}>Bottom</button>
+           <button onClick={() => setSelectedCol(null)} style={{marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 0.5rem'}}>✕</button>
         </div>
       )}
 
@@ -323,7 +324,7 @@ function FFPPage() {
                   }}></th>
                   {COL_NAMES.map((_, i) => (
                     <th key={`num-${i}`} 
-                        onClick={() => setSelectedCol(i)}
+                        onClick={() => setSelectedCol(prev => prev === i ? null : i)}
                         style={{
                       textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                       verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
@@ -359,7 +360,6 @@ function FFPPage() {
                     return (
                       <th 
                         key={i} 
-                        onClick={() => setSelectedCol(i)}
                         style={{
                           ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
                           width: `${columnWidths[i]}px`,
