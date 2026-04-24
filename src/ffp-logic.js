@@ -213,7 +213,14 @@ export const evaluateRow = (row, sheets) => {
   r[26] = manual[26] !== "" ? manual[26] : (((num(r[22]) + num(r[21])) * 1500) || ""); // AA
   r[27] = manual[27] !== "" ? manual[27] : ((((num(r[22]) + num(r[21])) * 2500) + (num(r[19]) * 2000)) || ""); // AB
   
-  // AC:AG (28-32) unchanged
+  // AC:AG (28-32)
+  r[28] = manual[28]; // MTL Rec (index 28, col 29)
+  
+  // Column 30 (index 29) = Original STL Recovery - Sum(Col 31 to 36)
+  const stlOriginal = num(manual[29]);
+  const sumDeductions = num(r[30]) + num(r[31]) + num(r[32]) + num(r[33]) + num(r[34]) + num(r[35]);
+  r[29] = manual[29] !== "" ? (stlOriginal - sumDeductions) : "";
+  if (r[29] === 0 && manual[29] !== "") r[29] = "0"; // Show 0 if it reached zero
   
   // AU evaluated first to use in AH
   r[46] = manual[46] !== "" ? manual[46] : (vlookup(L, wbt, 19, 21)); // AU (T=19, V=21)
