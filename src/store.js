@@ -18,6 +18,7 @@ const useStore = create(
       },
       ffpManualData: [],
       columnWidths: Array(47).fill(120),
+      customHeaders: {},
       
       setMasterData: (sheetName, data) => set((state) => ({
         masterData: {
@@ -28,6 +29,9 @@ const useStore = create(
 
       setFfpData: (data) => set({ ffpManualData: data }),
       setColumnWidths: (widths) => set({ columnWidths: widths }),
+      setCustomHeader: (index, value) => set((state) => ({
+        customHeaders: { ...state.customHeaders, [index]: value }
+      })),
       
       clearAllData: () => set({ 
         masterData: { 
@@ -35,7 +39,8 @@ const useStore = create(
           'INS': [], 'EXT': [], 'RATE': [], 'DATE': [], 'WBT UPT': [] 
         },
         ffpManualData: [],
-        columnWidths: Array(47).fill(120)
+        columnWidths: Array(47).fill(120),
+        customHeaders: {}
       })
     }),
     {

@@ -30,7 +30,7 @@ const CALCULATED_COLS = [
 ];
 
 function FFPPage() {
-  const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths } = useStore();
+  const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths, customHeaders, setCustomHeader } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
 
   const formatCell = (rIndex, cIndex, val) => {
@@ -276,7 +276,7 @@ function FFPPage() {
                   }}></th>
                   {COL_NAMES.map((_, i) => (
                     <th key={`num-${i}`} style={{
-                      textAlign: 'center',
+                      textAlign: 'right',
                       fontSize: '0.8rem',
                       color: 'var(--accent)',
                       background: 'rgba(0, 0, 0, 0.6)',
@@ -284,7 +284,7 @@ function FFPPage() {
                       position: 'sticky',
                       zIndex: 30,
                       borderBottom: 'none',
-                      padding: '4px 0',
+                      padding: '4px 6px',
                       fontWeight: 'bold',
                       borderRight: '1px solid var(--border-color)',
                       width: `${columnWidths[i]}px`
@@ -313,11 +313,30 @@ function FFPPage() {
                           width: `${columnWidths[i]}px`,
                           position: 'sticky',
                           top: '31px',
-                          zIndex: 30
+                          zIndex: 30,
+                          textAlign: 'right',
+                          paddingRight: '6px'
                         }}
                       >
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                          {displayName}
+                        <div style={{ overflow: 'hidden', width: '100%' }}>
+                          <input 
+                            type="text" 
+                            value={customHeaders && customHeaders[i] !== undefined ? customHeaders[i] : displayName}
+                            onChange={(e) => setCustomHeader && setCustomHeader(i, e.target.value)}
+                            title={customHeaders && customHeaders[i] !== undefined ? customHeaders[i] : displayName}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'inherit',
+                              fontWeight: 'inherit',
+                              width: '100%',
+                              textAlign: 'right',
+                              outline: 'none',
+                              fontSize: 'inherit',
+                              fontFamily: 'inherit',
+                              textOverflow: 'ellipsis'
+                            }}
+                          />
                         </div>
                         <div 
                           onMouseDown={(e) => startResizing(i, e)}
