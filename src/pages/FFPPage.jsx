@@ -325,6 +325,8 @@ function FFPPage() {
                   {COL_NAMES.map((_, i) => (
                     <th key={`num-${i}`} 
                         onClick={() => setSelectedCol(prev => prev === i ? null : i)}
+                        onDoubleClick={() => autoFitColumn(i)}
+                        title={`Column ${i + 1} — Click: align options | Double-click: auto-fit width`}
                         style={{
                       textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                       verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
@@ -339,7 +341,8 @@ function FFPPage() {
                       fontWeight: 'bold',
                       borderRight: '1px solid var(--border-color)',
                       width: `${columnWidths[i]}px`,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      userSelect: 'none'
                     }}>
                       {i + 1}
                     </th>
