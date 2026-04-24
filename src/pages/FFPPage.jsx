@@ -316,10 +316,12 @@ function FFPPage() {
                   <th style={{ 
                     position: 'sticky', 
                     left: 0, 
-                    zIndex: 35, 
+                    zIndex: 36, 
                     top: 0, 
-                    background: 'var(--card-bg)',
+                    background: 'rgba(0,0,0,0.6)',
                     borderBottom: 'none',
+                    width: '60px',
+                    minWidth: '60px',
                     padding: 0
                   }}></th>
                   {COL_NAMES.map((_, i) => (
@@ -410,8 +412,8 @@ function FFPPage() {
             <tbody>
                {liveData.map((row, rIndex) => (
                   <tr key={rIndex}>
-                    <td style={{position: 'sticky', left: 0, background: 'var(--card-bg)', zIndex: 10, textAlign: 'center'}}>
-                      <button onClick={() => removeRow(rIndex)} style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer'}}>
+                    <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)'}}>
+                      <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer'}}>
                          <Trash2 size={16} />
                       </button>
                     </td>
