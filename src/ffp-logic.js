@@ -162,6 +162,13 @@ export const evaluateRow = (row, sheets) => {
     return isNaN(p) ? 0 : p;
   };
   
+  // Helper to preserve manual input like "." during typing
+  let preserveManual = (manualVal, calculatedVal) => {
+    if (manualVal === "." || manualVal === "-") return manualVal;
+    if (typeof manualVal === 'string' && manualVal.endsWith(".")) return manualVal;
+    return calculatedVal;
+  };
+  
   let L = r[11]; // Plot No (L)
 
   // CRITICAL: If Plot No is empty, stop and return only manual inputs or blanks
@@ -219,7 +226,8 @@ export const evaluateRow = (row, sheets) => {
   // Column 30 (index 29) = Original STL Recovery - Sum(Col 31 to 36)
   const stlOriginal = num(manual[29]);
   const sumDeductions = num(r[30]) + num(r[31]) + num(r[32]) + num(r[33]) + num(r[34]) + num(r[35]);
-  r[29] = manual[29] !== "" ? (stlOriginal - sumDeductions) : "";
+  let stlResult = manual[29] !== "" ? (stlOriginal - sumDeductions) : "";
+  r[29] = preserveManual(manual[29], stlResult);
   if (r[29] === 0 && manual[29] !== "") r[29] = "0"; // Show 0 if it reached zero
   
   // AU evaluated first to use in AH
@@ -230,7 +238,8 @@ export const evaluateRow = (row, sheets) => {
   // AI:AK (34-36) unchanged
   
   let deductions = num(r[27]) + num(r[28]) + num(r[29]) + num(r[30]) + num(r[31]) + num(r[32]) + (r[33] === "MA" ? 0 : num(r[33])) + num(r[34]) + num(r[35]) + num(r[36]);
-  r[37] = manual[37] !== "" ? manual[37] : (((num(r[24]) + num(r[25]) + num(r[26])) - deductions) || ""); // AL
+  let balanceResult = manual[37] !== "" ? manual[37] : ((num(r[24]) + num(r[25]) + num(r[26])) - deductions);
+  r[37] = manual[37] !== "" ? manual[37] : (balanceResult === 0 ? "0.00" : (balanceResult || "")); // AL
   
   r[38] = sumifs_ins(ins, L, r[0]); // AM
   

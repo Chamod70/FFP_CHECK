@@ -45,20 +45,31 @@ function FFPPage() {
      }
      
      // Only clean the display when NOT focused
-     strValue = strValue.replace(/\.+$/, "").trim();
+     // But don't remove dots if they are the only character (manual typing)
+     if (strValue.length > 1) {
+        strValue = strValue.replace(/\.+$/, "").trim();
+     }
 
-     if (/^[0.\s\-]*$/.test(strValue) && strValue !== "") {
+     if (/^[\s\-]*$/.test(strValue) && strValue !== "") {
         return "";
      }
 
      if (strValue === "No" || strValue === "RATE") return "";
      if (strValue === "MA") return "MA";
 
-     if (cIndex < 15 || cIndex > 38) return strValue; 
+     // Format columns 15 through 42 (indices 14 through 41)
+     // Actually rawHeaders[14] is "NIC", 15 is "Extent(HA)"
+     if (cIndex < 15 || cIndex > 41) return strValue; 
      
      let cleanVal = strValue.replace(/,/g, '');
      let parsed = parseFloat(cleanVal);
-     if (isNaN(parsed) || parsed === 0) return ""; 
+     
+     // If it's a manual "." or similar, don't try to parse and format it
+     if (isNaN(parsed)) return strValue;
+     if (parsed === 0) {
+        if (cIndex === 37) return "0.00"; // Show 0.00 for Balance if it's explicitly 0
+        return ""; 
+     }
 
      if (cIndex === 15) {
         return parsed.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
@@ -410,8 +421,12 @@ function FFPPage() {
                </tr>
             </thead>
             <tbody>
-               {liveData.map((row, rIndex) => (
-                  <tr key={rIndex}>
+                {liveData.map((row, rIndex) => {
+                   const balance = parseFloat(String(row[37] || "0").replace(/,/g, ''));
+                   const isOliverGreen = balance === 0 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
+                   
+                   return (
+                   <tr key={rIndex} style={isOliverGreen ? { background: '#6B8E23' } : {}}>
                     <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)'}}>
                       <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer'}}>
                          <Trash2 size={16} />
@@ -455,7 +470,7 @@ function FFPPage() {
                        );
                     })}
                   </tr>
-                ))}
+                )})}
                {liveData.length === 0 && (
                  <tr>
                    <td colSpan={100} style={{textAlign: 'center', padding: '3rem'}}>
