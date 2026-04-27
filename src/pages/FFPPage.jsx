@@ -36,15 +36,16 @@ function FFPPage() {
 
   const formatCell = (rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
-     let strValue = String(val).trim();
+     let strValue = String(val);
      const isFocused = focusedCell?.r === rIndex && focusedCell?.c === cIndex;
 
-     // While focused, let the user type anything (including dots at the end)
+     // While focused, let the user type anything (including dots and spaces at the end)
      if (isFocused) {
         return strValue.replace(/,/g, '');
      }
      
      // Only clean the display when NOT focused
+     strValue = strValue.trim();
      // But don't remove dots if they are the only character (manual typing)
      if (strValue.length > 1) {
         strValue = strValue.replace(/\.+$/, "").trim();
