@@ -223,11 +223,8 @@ export const evaluateRow = (row, sheets) => {
   // AC:AG (28-32)
   r[28] = manual[28]; // MTL Rec (index 28, col 29)
   
-  // Column 30 (index 29) = Original STL Recovery - Sum(Col 31 to 36)
-  const stlOriginal = num(manual[29]);
-  const sumDeductions = num(r[30]) + num(r[31]) + num(r[32]) + num(r[33]) + num(r[34]) + num(r[35]);
-  let stlResult = manual[29] !== "" ? (stlOriginal - sumDeductions) : "";
-  r[29] = preserveManual(manual[29], stlResult);
+  // Column 30 (index 29) - Standard manual input
+  r[29] = preserveManual(manual[29], manual[29]);
   if (r[29] === 0 && manual[29] !== "") r[29] = "0"; // Show 0 if it reached zero
   
   // AU evaluated first to use in AH
