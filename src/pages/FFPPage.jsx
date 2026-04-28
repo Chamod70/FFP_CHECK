@@ -469,7 +469,7 @@ function FFPPage() {
                              <input 
                                 id={`cell-${rIndex}-${cIndex}`}
                                 type="text" 
-                                value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] || (typeof cellVal === 'number' ? cellVal.toFixed(cIndex === 15 ? 4 : 2) : String(cellVal).replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
+                                value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] || (typeof cellVal === 'number' ? (Math.abs(cellVal) < 0.0001 ? (0).toFixed(cIndex === 15 ? 4 : 2) : cellVal.toFixed(cIndex === 15 ? 4 : 2)) : String(cellVal).replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
                                 placeholder=""
                                 autoFocus={false}
                                 autoComplete="off"
