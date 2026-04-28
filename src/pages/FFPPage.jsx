@@ -26,7 +26,7 @@ const COL_NAMES = Array.from({ length: 47 }, (_, i) => {
 
 // Which columns are strictly calculated? We make them read-only
 const CALCULATED_COLS = [
-  0, 1, 2, 3, 7, 12, 13, 14, 15, 16, 22, 23, 24, 25, 26, 27, 33, 37, 38, 46
+  0, 1, 2, 3, 7, 12, 13, 14, 15, 16, 22, 23, 24, 25, 26, 33, 37, 38, 46
 ];
 
 function FFPPage() {
