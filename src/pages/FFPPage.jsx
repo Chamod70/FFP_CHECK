@@ -451,7 +451,7 @@ function FFPPage() {
             <tbody>
                 {liveData.map((row, rIndex) => {
                    const balance = parseFloat(String(row[37] || "0").replace(/,/g, ''));
-                   const isOliverGreen = balance === 0 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
+                   const isOliverGreen = Math.abs(balance) < 0.01 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
                    
                    return (
                    <tr key={rIndex} style={isOliverGreen ? { background: '#6B8E23' } : {}}>
