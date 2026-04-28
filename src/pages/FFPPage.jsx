@@ -87,6 +87,10 @@ function FFPPage() {
      
      // If it's a manual "." or similar, don't try to parse and format it
      if (isNaN(parsed)) return strValue;
+
+     // Fix negative zero issue by rounding very small values
+     if (Math.abs(parsed) < 0.0001) parsed = 0;
+
      if (parsed === 0) {
         if (strValue.trim() !== "" && strValue !== ".") {
            const decimals = (cIndex === 15) ? 4 : 2;
