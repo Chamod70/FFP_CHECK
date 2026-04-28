@@ -88,7 +88,10 @@ function FFPPage() {
      // If it's a manual "." or similar, don't try to parse and format it
      if (isNaN(parsed)) return strValue;
      if (parsed === 0) {
-        if (cIndex === 37) return "0.00"; // Show 0.00 for Balance if it's explicitly 0
+        if (strValue.trim() !== "" && strValue !== ".") {
+           const decimals = (cIndex === 15) ? 4 : 2;
+           return (0).toFixed(decimals);
+        }
         return ""; 
      }
 
