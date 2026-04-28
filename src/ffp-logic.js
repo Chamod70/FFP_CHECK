@@ -28,7 +28,7 @@ export const parseDate = (val) => {
   // Remove leading - if present
   if (str.startsWith('-')) str = str.substring(1).trim();
 
-  // Manual parse for DD/MM/YYYY or MM/DD/YYYY
+  // Manual parse for DD/MM/YYYY or MM/DD/YYYY or MM/DD
   if (str.includes('/')) {
     const parts = str.split('/');
     if (parts.length === 3) {
@@ -38,21 +38,28 @@ export const parseDate = (val) => {
       if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
         if (p2 < 100) p2 += 2000;
         
-        // If second part is > 12, it's definitely the day: MM/DD/YYYY
         if (p1 > 12) {
           const d = new Date(p2, p0 - 1, p1);
           if (!isNaN(d.getTime())) return d.getTime();
         } 
-        // If first part is > 12, it's definitely the day: DD/MM/YYYY
         else if (p0 > 12) {
           const d = new Date(p2, p1 - 1, p0);
           if (!isNaN(d.getTime())) return d.getTime();
         } 
-        // Ambiguous. 11/8/2022. Try MM/DD/YYYY first as user uses 2/20/2025
         else {
           let d = new Date(p2, p0 - 1, p1);
           if (!isNaN(d.getTime())) return d.getTime();
         }
+      }
+    } else if (parts.length === 2) {
+      // Handle MM/DD and assume current year (2026)
+      let p0 = parseInt(parts[0]);
+      let p1 = parseInt(parts[1]);
+      if (!isNaN(p0) && !isNaN(p1)) {
+        const currentYear = 2026;
+        // Try MM/DD first
+        let d = new Date(currentYear, p0 - 1, p1);
+        if (!isNaN(d.getTime())) return d.getTime();
       }
     }
   }

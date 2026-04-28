@@ -56,6 +56,28 @@ function FFPPage() {
      if (strValue === "No" || strValue === "RATE") return "";
      if (strValue === "MA") return "MA";
 
+     // Format date columns: COM /DATE (0), Harvesting Date (4), Date (7)
+     if (cIndex === 0 || cIndex === 4 || cIndex === 7) {
+        // If it's a number (Excel serial), convert it
+        let p = parseFloat(strValue);
+        if (!isNaN(p) && p > 1000) {
+           const date = new Date(Math.round((p - 25569) * 86400 * 1000));
+           return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+        }
+        // If it's a string date, parse and format it
+        const parts = strValue.split('/');
+        if (parts.length === 2 || parts.length === 3) {
+           let m = parseInt(parts[0]);
+           let d = parseInt(parts[1]);
+           let y = parts[2] ? parseInt(parts[2]) : 2026;
+           if (!isNaN(m) && !isNaN(d)) {
+              if (y < 100) y += 2000;
+              return `${m}/${d}/${y}`;
+           }
+        }
+        return strValue;
+     }
+
      // Format columns 15 through 42 (indices 14 through 41)
      // Actually rawHeaders[14] is "NIC", 15 is "Extent(HA)"
      if (cIndex < 15 || cIndex > 41) return strValue; 
