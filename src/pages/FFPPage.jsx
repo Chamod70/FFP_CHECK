@@ -39,10 +39,11 @@ function FFPPage() {
      let strValue = String(val);
      const isFocused = focusedCell?.r === rIndex && focusedCell?.c === cIndex;
 
-     // While focused, let the user type anything (including dots and spaces at the end)
-     if (isFocused) {
-        return strValue.replace(/,/g, '');
-     }
+      // While focused, let the user type anything in EDITABLE cells.
+      // But for CALCULATED cells, keep the formatting even when focused.
+      if (isFocused && !CALCULATED_COLS.includes(cIndex)) {
+         return strValue.replace(/,/g, '');
+      }
      
      // Only clean the display when NOT focused
      strValue = strValue.trim();
