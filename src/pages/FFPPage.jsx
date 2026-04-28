@@ -25,9 +25,7 @@ const COL_NAMES = Array.from({ length: 47 }, (_, i) => {
 
 
 // Which columns are strictly calculated? We make them read-only
-const CALCULATED_COLS = [
-  0, 1, 2, 3, 7, 12, 13, 14, 15, 16, 22, 23, 24, 25, 26, 33, 37, 38, 46
-];
+const CALCULATED_COLS = [];
 
 function FFPPage() {
   const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment } = useStore();
@@ -39,9 +37,8 @@ function FFPPage() {
      let strValue = String(val);
      const isFocused = focusedCell?.r === rIndex && focusedCell?.c === cIndex;
 
-      // While focused, let the user type anything in EDITABLE cells.
-      // But for CALCULATED cells, keep the formatting even when focused.
-      if (isFocused && !CALCULATED_COLS.includes(cIndex)) {
+      // While focused, let the user type anything.
+      if (isFocused) {
          return strValue.replace(/,/g, '');
       }
      
@@ -447,7 +444,7 @@ function FFPPage() {
                              <input 
                                 id={`cell-${rIndex}-${cIndex}`}
                                 type="text" 
-                                value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex && cIndex === 29) ? (ffpManualData[rIndex]?.[cIndex] || "") : formatCell(rIndex, cIndex, cellVal)} 
+                                value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] || String(cellVal).replace(/,/g, '')) : formatCell(rIndex, cIndex, cellVal)} 
                                 placeholder=""
                                 autoFocus={false}
                                 autoComplete="off"

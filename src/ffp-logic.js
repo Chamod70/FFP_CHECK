@@ -242,7 +242,7 @@ export const evaluateRow = (row, sheets) => {
   let balanceResult = manual[37] !== "" ? manual[37] : ((num(r[24]) + num(r[25]) + num(r[26])) - deductions);
   r[37] = manual[37] !== "" ? manual[37] : (balanceResult === 0 ? "0.00" : (balanceResult || "")); // AL
   
-  r[38] = sumifs_ins(ins, L, r[0]); // AM
+  r[38] = manual[38] !== "" ? manual[38] : sumifs_ins(ins, L, r[0]); // AM
   
   // AN:AQ (39-42) unchanged
   // AR:AT (43-45) unchanged just in case
