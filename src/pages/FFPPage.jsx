@@ -446,7 +446,7 @@ function FFPPage() {
                              <input 
                                 id={`cell-${rIndex}-${cIndex}`}
                                 type="text" 
-                                value={focusedCell?.r === rIndex && focusedCell?.c === cIndex ? (ffpManualData[rIndex]?.[cIndex] || "") : formatCell(rIndex, cIndex, cellVal)} 
+                                value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex && cIndex === 29) ? (ffpManualData[rIndex]?.[cIndex] || "") : formatCell(rIndex, cIndex, cellVal)} 
                                 placeholder=""
                                 autoFocus={false}
                                 autoComplete="off"
