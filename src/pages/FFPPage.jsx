@@ -436,9 +436,6 @@ function FFPPage() {
                     {row.map((cell, cIndex) => {
                        const isCalculated = CALCULATED_COLS.includes(cIndex);
                        let cellVal = cell;
-                       if (typeof cellVal === 'number' && !Number.isInteger(cellVal)) {
-                          cellVal = cellVal.toFixed(2);
-                       }
                        if (cellVal === undefined || cellVal === null) cellVal = "";
 
                        return (
@@ -449,7 +446,7 @@ function FFPPage() {
                              <input 
                                 id={`cell-${rIndex}-${cIndex}`}
                                 type="text" 
-                                value={formatCell(rIndex, cIndex, cellVal)} 
+                                value={focusedCell?.r === rIndex && focusedCell?.c === cIndex ? (ffpManualData[rIndex]?.[cIndex] || "") : formatCell(rIndex, cIndex, cellVal)} 
                                 placeholder=""
                                 autoFocus={false}
                                 autoComplete="off"
