@@ -351,14 +351,14 @@ function FFPPage() {
             borderCollapse: 'collapse'
          }}>
             <thead>
-               <tr style={{ height: '25px' }}>
+               <tr style={{ height: '30px' }}>
                   <th style={{ 
                     position: 'sticky', 
                     left: 0, 
-                    zIndex: 36, 
+                    zIndex: 45, 
                     top: 0, 
-                    background: 'rgba(0,0,0,0.6)',
-                    borderBottom: 'none',
+                    background: '#0b1120',
+                    borderBottom: '1px solid var(--border-color)',
                     width: '60px',
                     minWidth: '60px',
                     padding: 0
@@ -373,11 +373,11 @@ function FFPPage() {
                       verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                       fontSize: '0.8rem',
                       color: selectedCol === i ? '#fff' : 'var(--accent)',
-                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0, 0, 0, 0.6)',
+                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : '#0b1120',
                       top: 0,
                       position: 'sticky',
-                      zIndex: 30,
-                      borderBottom: 'none',
+                      zIndex: 40,
+                      borderBottom: '1px solid var(--border-color)',
                       padding: '4px 6px',
                       fontWeight: 'bold',
                       borderRight: '1px solid var(--border-color)',
@@ -389,14 +389,15 @@ function FFPPage() {
                     </th>
                   ))}
                </tr>
-               <tr>
+               <tr style={{ height: '45px' }}>
                   <th style={{
                     position: 'sticky', 
                     left: 0, 
-                    zIndex: 35, 
-                    top: '31px', 
-                    background: 'var(--card-bg)', 
-                    width: '60px'
+                    zIndex: 42, 
+                    top: '30px', 
+                    background: '#1e293b', 
+                    width: '60px',
+                    borderBottom: '2px solid var(--accent)'
                   }}>Action</th>
                   {COL_NAMES.map((col, i) => {
                     let displayName = col;
@@ -408,13 +409,14 @@ function FFPPage() {
                           ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
                           width: `${columnWidths[i]}px`,
                           position: 'sticky',
-                          top: '31px',
-                          zIndex: 30,
+                          top: '30px',
+                          zIndex: 40,
                           textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                           verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                           paddingRight: '6px',
-                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : undefined,
-                          cursor: 'pointer'
+                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : '#1e293b',
+                          cursor: 'pointer',
+                          borderBottom: '2px solid var(--accent)'
                         }}
                       >
                         <div style={{ overflow: 'hidden', width: '100%' }}>
