@@ -192,7 +192,7 @@ export const evaluateRow = (row, sheets) => {
   const ins = sheets["INS"];
 
   r[0] = manual[0] !== "" ? manual[0] : (vlookup(L, hcomp, 0, 1)); // A
-  r[1] = r[1] || ""; // B
+  // r[1] (B) logic moved down after r[23] calculation
   
   let cVal = vlookup(L, mast, 0, 3); // C (D column in MAST -> D=3)
   r[2] = manual[2] !== "" ? manual[2] : (cVal === 0 || cVal === "" ? "" : cVal); 
@@ -221,6 +221,27 @@ export const evaluateRow = (row, sheets) => {
 
   r[22] = manual[22] !== "" ? manual[22] : (sumif(19, L, 24, wbt) / 1000 || ""); // W (col 23)
   r[23] = manual[23] !== "" ? manual[23] : ((num(r[18]) + num(r[19]) + num(r[20]) + num(r[21]) + num(r[22])) || ""); // X = S+T+U+V+W
+  
+  // New logic for Column 2 (PART - index 1)
+  const categoryMatch = vlookup(L, wbt, 19, 21);
+  if (categoryMatch === "Machine Harvested") {
+    const totalX = num(r[23]);
+    const extentP = num(r[15]);
+    if (extentP > 0) {
+      const res = totalX / extentP;
+      let valB = "";
+      if (res > 100) valB = 1600;
+      else if (res >= 80) valB = 1700;
+      else if (res >= 60) valB = 2000;
+      else if (res >= 40) valB = 2500;
+      else valB = 2900;
+      r[1] = manual[1] !== "" ? manual[1] : valB;
+    } else {
+      r[1] = manual[1] !== "" ? manual[1] : "";
+    }
+  } else {
+    r[1] = manual[1] !== "" ? manual[1] : "";
+  }
   
   r[24] = manual[24] !== "" ? manual[24] : (((num(r[19]) * 9150) + sumif(19, L, 25, wbt2) + sumif(19, L, 25, wbt)) || ""); // Y
   r[25] = manual[25] !== "" ? manual[25] : (((num(r[22]) + num(r[21])) * 1000) || ""); // Z
