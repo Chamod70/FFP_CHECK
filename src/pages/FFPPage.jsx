@@ -372,8 +372,8 @@ function FFPPage() {
                       textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                       verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                       fontSize: '0.8rem',
-                      color: selectedCol === i ? '#fff' : 'var(--accent)',
-                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : (i >= 4 && i <= 37 ? '#1e3a8a' : '#0b1120'),
+                      color: selectedCol === i ? '#fff' : (i >= 4 && i <= 37 ? '#6ee7b7' : 'var(--accent)'),
+                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : (i >= 4 && i <= 37 ? '#022c22' : '#0b1120'),
                       top: 0,
                       position: 'sticky',
                       zIndex: 40,
@@ -406,7 +406,7 @@ function FFPPage() {
                       <th 
                         key={i} 
                         style={{
-                          ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : {}),
+                          ...(CALCULATED_COLS.includes(i) ? {color: '#38bdf8'} : (i >= 4 && i <= 37 ? {color: '#a7f3d0'} : {})),
                           width: `${columnWidths[i]}px`,
                           position: 'sticky',
                           top: '30px',
@@ -414,7 +414,7 @@ function FFPPage() {
                           textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                           verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                           paddingRight: '6px',
-                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : (i >= 4 && i <= 37 ? '#1e40af' : '#1e293b'),
+                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : (i >= 4 && i <= 37 ? '#064e3b' : '#1e293b'),
                           cursor: 'pointer',
                           borderBottom: '2px solid var(--accent)'
                         }}
