@@ -203,7 +203,14 @@ export const evaluateRow = (row, sheets) => {
   // Calculation for H (index 7): IF(D=E, "", "H/WRONG")
   let valD = String(r[3]).trim();
   let valE = String(r[4]).trim();
-  r[7] = manual[7] !== "" ? manual[7] : (valD === valE ? "" : "H/WRONG");
+  let dateD = toYYYYMMDD(r[3]);
+  let dateE = toYYYYMMDD(r[4]);
+  
+  if (dateD !== null && dateE !== null) {
+    r[7] = manual[7] !== "" ? manual[7] : (dateD === dateE ? "" : "H/WRONG");
+  } else {
+    r[7] = manual[7] !== "" ? manual[7] : (valD === valE ? "" : "H/WRONG");
+  }
 
   r[12] = manual[12] !== "" ? manual[12] : (vlookup(L, mast, 0, 1)); // M
   r[13] = manual[13] !== "" ? manual[13] : (vlookup(L, mast, 0, 7)); // N

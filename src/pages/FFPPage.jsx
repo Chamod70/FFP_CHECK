@@ -373,7 +373,7 @@ function FFPPage() {
                       verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                       fontSize: '0.8rem',
                       color: selectedCol === i ? '#fff' : 'var(--accent)',
-                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : '#0b1120',
+                      background: selectedCol === i ? 'rgba(56, 189, 248, 0.2)' : (i >= 4 && i <= 37 ? '#1e3a8a' : '#0b1120'),
                       top: 0,
                       position: 'sticky',
                       zIndex: 40,
@@ -414,7 +414,7 @@ function FFPPage() {
                           textAlign: columnAlignments && columnAlignments[i] ? columnAlignments[i] : 'right',
                           verticalAlign: columnVerticalAlignments && columnVerticalAlignments[i] ? columnVerticalAlignments[i] : 'bottom',
                           paddingRight: '6px',
-                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : '#1e293b',
+                          background: selectedCol === i ? 'rgba(56, 189, 248, 0.1)' : (i >= 4 && i <= 37 ? '#1e40af' : '#1e293b'),
                           cursor: 'pointer',
                           borderBottom: '2px solid var(--accent)'
                         }}
