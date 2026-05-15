@@ -108,3 +108,24 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.mini-copy-btn {
+  opacity: 0.4;
+  transition: opacity 0.2s, transform 0.1s, color 0.2s;
+}
+
+.mini-copy-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background: rgba(170, 59, 255, 0.1) !important;
+  border-radius: 4px;
+}
+
+.mini-copy-btn:active {
+  transform: scale(0.95);
+}
+
+/* Ensure cell input doesn't overlap the button too much */
+.cell-input {
+  padding-right: 4px;
+}

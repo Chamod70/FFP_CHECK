@@ -470,29 +470,63 @@ function FFPPage() {
                        return (
                           <td key={cIndex} style={{
                             ...(isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {}),
-                            width: `${columnWidths[cIndex]}px`
+                            width: `${columnWidths[cIndex]}px`,
+                            position: 'relative'
                           }}>
-                             <input 
-                                id={`cell-${rIndex}-${cIndex}`}
-                                type="text" 
-                                value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] || (typeof cellVal === 'number' ? (Math.abs(cellVal) < 0.0001 ? (0).toFixed(cIndex === 15 ? 4 : 2) : cellVal.toFixed(cIndex === 15 ? 4 : 2)) : String(cellVal).replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
-                                placeholder=""
-                                autoFocus={false}
-                                autoComplete="off"
-                                onChange={(e) => handleCellChange(rIndex, cIndex, e.target.value)}
-                                onKeyDown={(e) => handleKeyDown(e, rIndex, cIndex)}
-                                onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
-                                onBlur={() => setFocusedCell(null)}
-                                className="cell-input"
-                                style={{
-                                   textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
-                                   verticalAlign: columnVerticalAlignments && columnVerticalAlignments[cIndex] ? columnVerticalAlignments[cIndex] : 'bottom',
-                                   outline: 'none',
-                                   boxShadow: 'none',
-                                   color: isCalculated ? 'var(--accent)' : '#fff',
-                                   cursor: 'text'
-                                }}
-                             />
+                             <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
+                                <input 
+                                   id={`cell-${rIndex}-${cIndex}`}
+                                   type="text" 
+                                   value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] || (typeof cellVal === 'number' ? (Math.abs(cellVal) < 0.0001 ? (0).toFixed(cIndex === 15 ? 4 : 2) : cellVal.toFixed(cIndex === 15 ? 4 : 2)) : String(cellVal).replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
+                                   placeholder=""
+                                   autoFocus={false}
+                                   autoComplete="off"
+                                   onChange={(e) => handleCellChange(rIndex, cIndex, e.target.value)}
+                                   onKeyDown={(e) => handleKeyDown(e, rIndex, cIndex)}
+                                   onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
+                                   onBlur={() => setFocusedCell(null)}
+                                   className="cell-input"
+                                   style={{
+                                      textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
+                                      verticalAlign: columnVerticalAlignments && columnVerticalAlignments[cIndex] ? columnVerticalAlignments[cIndex] : 'bottom',
+                                      outline: 'none',
+                                      boxShadow: 'none',
+                                      color: isCalculated ? 'var(--accent)' : '#fff',
+                                      cursor: 'text',
+                                      flex: 1,
+                                      minWidth: 0
+                                   }}
+                                />
+                                {cIndex === 11 && cellVal && cellVal.toString().trim() !== "" && cellVal !== "." && (
+                                   <button 
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       navigator.clipboard.writeText(cellVal.toString().trim());
+                                       const btn = e.currentTarget;
+                                       const originalColor = btn.style.color;
+                                       btn.style.color = '#10b981'; // Green for success
+                                       setTimeout(() => {
+                                          if (btn) btn.style.color = originalColor;
+                                       }, 1000);
+                                     }}
+                                     className="mini-copy-btn"
+                                     title="Copy Plot No"
+                                     style={{
+                                       background: 'transparent',
+                                       border: 'none',
+                                       color: 'var(--accent)',
+                                       cursor: 'pointer',
+                                       padding: '0 4px',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       transition: 'color 0.2s'
+                                     }}
+                                   >
+                                     <Copy size={14} />
+                                   </button>
+                                )}
+                             </div>
                           </td>
                        );
                     })}
