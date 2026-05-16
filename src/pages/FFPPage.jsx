@@ -28,7 +28,7 @@ const COL_NAMES = Array.from({ length: 47 }, (_, i) => {
 const CALCULATED_COLS = [];
 
 function FFPPage() {
-  const { masterData, ffpManualData, setFfpData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment } = useStore();
+  const { masterData, ffpManualData, setFfpData, addToBackupData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
 
@@ -302,6 +302,25 @@ function FFPPage() {
 
   const isEmpty = liveData.length === 0;
 
+  const handleClearAll = () => {
+    if (ffpManualData.length > 0) {
+      // Create a static snapshot of the current calculated data
+      // We process the data to ensure it's "Value Only" (formula results converted to static values)
+      const valueOnlyData = liveData.map((row, rIdx) => {
+        return row.map((cell, cIdx) => {
+          // Use the same formatting logic used for display to "freeze" the values
+          // This converts Excel serial dates to strings and ensures numbers are rounded
+          const formatted = formatCell(rIdx, cIdx, cell);
+          return formatted === "" ? cell : formatted;
+        });
+      });
+
+      addToBackupData(valueOnlyData);
+      setFfpData([]);
+      alert("Current data has been moved to Backup page as static values.");
+    }
+  };
+
   return (
     <div className="page-container" style={{maxWidth: '100%', padding: '1rem'}}>
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -325,7 +344,7 @@ function FFPPage() {
          <button className="btn btn-primary" onClick={addRow}><Plus size={16}/> Add Row</button>
          <button className="btn" onClick={handlePasteFFP}>Paste Rows Here</button>
          <button className="btn btn-success" onClick={handleCopyAll}><Copy size={16}/> Copy All Output Data</button>
-         <button className="btn btn-danger" onClick={() => setFfpData([])} style={{background: '#ef4444'}}>Clear All</button>
+         <button className="btn btn-danger" onClick={handleClearAll} style={{background: '#ef4444'}}>Clear All</button>
       </div>
 
       {selectedCol !== null && (

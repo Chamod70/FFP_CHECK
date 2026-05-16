@@ -17,6 +17,7 @@ const useStore = create(
         'WBT UPT': []
       },
       ffpManualData: [],
+      backupData: [],
       columnWidths: Array(47).fill(120),
       customHeaders: {},
       columnAlignments: {},
@@ -30,6 +31,10 @@ const useStore = create(
       })),
 
       setFfpData: (data) => set({ ffpManualData: data }),
+      setBackupData: (data) => set({ backupData: data }),
+      addToBackupData: (newData) => set((state) => ({ 
+        backupData: [...state.backupData, ...newData] 
+      })),
       setColumnWidths: (widths) => set({ columnWidths: widths }),
       setCustomHeader: (index, value) => set((state) => ({
         customHeaders: { ...state.customHeaders, [index]: value }
@@ -47,6 +52,7 @@ const useStore = create(
           'INS': [], 'EXT': [], 'RATE': [], 'DATE': [], 'WBT UPT': [] 
         },
         ffpManualData: [],
+        backupData: [],
         columnWidths: Array(47).fill(120),
         customHeaders: {},
         columnAlignments: {},
