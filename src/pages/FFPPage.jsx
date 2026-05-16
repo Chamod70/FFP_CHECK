@@ -31,6 +31,7 @@ function FFPPage() {
   const { masterData, ffpManualData, setFfpData, addToBackupData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   const formatCell = (rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
@@ -245,6 +246,11 @@ function FFPPage() {
     setFfpData([...ffpManualData, Array(47).fill("")]);
   };
 
+  const addTenRows = () => {
+    const newRows = Array.from({ length: 10 }, () => Array(47).fill(""));
+    setFfpData([...ffpManualData, ...newRows]);
+  };
+
   const removeRow = (index) => {
     const updatedData = [...ffpManualData];
     updatedData.splice(index, 1);
@@ -338,10 +344,27 @@ function FFPPage() {
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.25rem' }}>Total Plots</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>{plotCount}</div>
          </div>
+         <div className="zoom-controls" style={{
+            background: 'rgba(56, 189, 248, 0.05)',
+            border: '1px solid var(--border-color)',
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            marginLeft: '1rem'
+         }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>ZOOM</span>
+            <button className="btn" style={{ padding: '0.25rem 0.5rem', minWidth: '30px' }} onClick={() => setZoomLevel(Math.max(50, zoomLevel - 10))}>-</button>
+            <span style={{ minWidth: '45px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }}>{zoomLevel}%</span>
+            <button className="btn" style={{ padding: '0.25rem 0.5rem', minWidth: '30px' }} onClick={() => setZoomLevel(Math.min(200, zoomLevel + 10))}>+</button>
+            <button className="btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }} onClick={() => setZoomLevel(100)}>Reset</button>
+         </div>
       </div>
       
       <div className="actions-bar" style={{display: 'flex', gap: '1rem', marginBottom: '1rem'}}>
          <button className="btn btn-primary" onClick={addRow}><Plus size={16}/> Add Row</button>
+         <button className="btn btn-primary" onClick={addTenRows} style={{background: 'var(--accent)', color: '#000'}}><Plus size={16}/> Add 10 Rows</button>
          <button className="btn" onClick={handlePasteFFP}>Paste Rows Here</button>
          <button className="btn btn-success" onClick={handleCopyAll}><Copy size={16}/> Copy All Output Data</button>
          <button className="btn btn-danger" onClick={handleClearAll} style={{background: '#ef4444'}}>Clear All</button>
@@ -367,7 +390,9 @@ function FFPPage() {
          <table style={{ 
             tableLayout: 'fixed', 
             width: `${columnWidths.reduce((a, b) => a + b, 0) + 60}px`,
-            borderCollapse: 'collapse'
+            borderCollapse: 'collapse',
+            transformOrigin: 'top left',
+            transform: `scale(${zoomLevel / 100})`
          }}>
             <thead>
                <tr style={{ height: '30px' }}>
