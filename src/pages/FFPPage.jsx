@@ -303,8 +303,12 @@ function FFPPage() {
      }
   };
 
-  // Count of non-empty plot numbers
   const plotCount = ffpManualData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
+
+  const totalBalance = liveData.reduce((sum, row) => {
+     let val = String(row[37] || "0").replace(/,/g, '');
+     return sum + (parseFloat(val) || 0);
+  }, 0);
 
   const isEmpty = liveData.length === 0;
 
@@ -328,22 +332,37 @@ function FFPPage() {
   };
 
   return (
-    <div className="page-container" style={{maxWidth: '100%', padding: '1rem'}}>
-      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-         <div>
-            <h1 style={{marginTop: 0}}>FFP Live Dashboard</h1>
-            <p>Type directly into the non-calculated cells (like L for Farmer ID), and it calculates everything instantly.</p>
-         </div>
-         <div className="stats-badge" style={{
-            background: 'rgba(56, 189, 248, 0.1)',
-            border: '1px solid var(--accent)',
-            padding: '0.75rem 1.5rem',
-            borderRadius: '0.5rem',
-            textAlign: 'center'
-         }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.25rem' }}>Total Plots</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>{plotCount}</div>
-         </div>
+    <div className="page-container" style={{maxWidth: '100%', padding: '1rem', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box'}}>
+      <div style={{ flexShrink: 0 }}>
+        <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+           <div>
+              <h1 style={{marginTop: 0}}>FFP Live Dashboard</h1>
+              <p>Type directly into the non-calculated cells (like L for Farmer ID), and it calculates everything instantly.</p>
+           </div>
+           <div style={{ display: 'flex', gap: '1rem' }}>
+             <div className="stats-badge" style={{
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid var(--accent)',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                textAlign: 'center'
+             }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.25rem' }}>Total Plots</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>{plotCount}</div>
+             </div>
+             <div className="stats-badge" style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid var(--success)',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                textAlign: 'center'
+             }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.25rem' }}>Total Balance</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--success)' }}>
+                   {totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+             </div>
+           </div>
          <div className="zoom-controls" style={{
             background: 'rgba(56, 189, 248, 0.05)',
             border: '1px solid var(--border-color)',
@@ -370,23 +389,24 @@ function FFPPage() {
          <button className="btn btn-danger" onClick={handleClearAll} style={{background: '#ef4444'}}>Clear All</button>
       </div>
 
-      {selectedCol !== null && (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '4px', border: `1px solid var(--accent)`, marginBottom: '1rem' }}>
-           <span style={{fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 'bold', marginRight: '1rem'}}>
-             Align Column {selectedCol + 1} ({COL_NAMES[selectedCol]}):
-           </span>
-           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnAlignments && columnAlignments[selectedCol] === 'left' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'left')}>Left</button>
-           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnAlignments && columnAlignments[selectedCol] === 'center' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'center')}>Center</button>
-           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnAlignments || columnAlignments[selectedCol] === 'right' || !columnAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'right')}>Right</button>
-           <span style={{borderLeft: '1px solid var(--border-color)', height: '20px', margin: '0 0.5rem'}}></span>
-           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'top' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'top')}>Top</button>
-           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'middle' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'middle')}>Middle</button>
-           <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnVerticalAlignments || columnVerticalAlignments[selectedCol] === 'bottom' || !columnVerticalAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'bottom')}>Bottom</button>
-           <button onClick={() => setSelectedCol(null)} style={{marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 0.5rem'}}>✕</button>
-        </div>
-      )}
+       {selectedCol !== null && (
+         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '4px', border: `1px solid var(--accent)`, marginBottom: '1rem' }}>
+            <span style={{fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 'bold', marginRight: '1rem'}}>
+              Align Column {selectedCol + 1} ({COL_NAMES[selectedCol]}):
+            </span>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnAlignments && columnAlignments[selectedCol] === 'left' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'left')}>Left</button>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnAlignments && columnAlignments[selectedCol] === 'center' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'center')}>Center</button>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnAlignments || columnAlignments[selectedCol] === 'right' || !columnAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnAlignment && setColumnAlignment(selectedCol, 'right')}>Right</button>
+            <span style={{borderLeft: '1px solid var(--border-color)', height: '20px', margin: '0 0.5rem'}}></span>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'top' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'top')}>Top</button>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'middle' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'middle')}>Middle</button>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnVerticalAlignments || columnVerticalAlignments[selectedCol] === 'bottom' || !columnVerticalAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'bottom')}>Bottom</button>
+            <button onClick={() => setSelectedCol(null)} style={{marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 0.5rem'}}>✕</button>
+         </div>
+       )}
+      </div>
 
-      <div className="table-container" style={{maxHeight: '82vh', overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
+      <div className="table-container" style={{flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
          <table style={{ 
             tableLayout: 'fixed', 
             width: `${columnWidths.reduce((a, b) => a + b, 0) + 60}px`,
