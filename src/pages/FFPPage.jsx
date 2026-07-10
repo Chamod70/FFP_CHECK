@@ -32,6 +32,7 @@ function FFPPage() {
   const [focusedCell, setFocusedCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [hasAlerted, setHasAlerted] = useState(false);
 
   const formatCell = (rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
@@ -310,6 +311,15 @@ function FFPPage() {
      return sum + (parseFloat(val) || 0);
   }, 0);
 
+  React.useEffect(() => {
+    if (totalBalance > 5000000 && !hasAlerted) {
+      alert("අවවාදයි: Total Balance එක මිලියන 5 ඉක්මවා ඇත! (Total Balance has exceeded 5 Million)");
+      setHasAlerted(true);
+    } else if (totalBalance <= 5000000 && hasAlerted) {
+      setHasAlerted(false);
+    }
+  }, [totalBalance, hasAlerted]);
+
   const isEmpty = liveData.length === 0;
 
   const handleClearAll = () => {
@@ -411,8 +421,7 @@ function FFPPage() {
             tableLayout: 'fixed', 
             width: `${columnWidths.reduce((a, b) => a + b, 0) + 60}px`,
             borderCollapse: 'collapse',
-            transformOrigin: 'top left',
-            transform: `scale(${zoomLevel / 100})`
+            zoom: zoomLevel / 100
          }}>
             <thead>
                <tr style={{ height: '30px' }}>
