@@ -1,9 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Database } from 'lucide-react';
+import { LayoutDashboard, Database, Settings } from 'lucide-react';
 import FFPPage from './pages/FFPPage';
 import DataEntryPage from './pages/DataEntryPage';
 import BackupPage from './pages/BackupPage';
+import SystemBackupPage from './pages/SystemBackupPage';
 import './App.css';
 
 function App() {
@@ -28,6 +29,10 @@ function App() {
               <Database size={20} />
               <span>Backup Data</span>
             </NavLink>
+            <NavLink to="/system-backup" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+              <Settings size={20} />
+              <span>System Backup</span>
+            </NavLink>
           </nav>
         </aside>
         
@@ -37,6 +42,7 @@ function App() {
             <Route path="/ffp" element={<FFPPage />} />
             <Route path="/master-data" element={<DataEntryPage />} />
             <Route path="/backup" element={<BackupPage />} />
+            <Route path="/system-backup" element={<SystemBackupPage />} />
           </Routes>
         </main>
       </div>

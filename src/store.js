@@ -29,6 +29,7 @@ const useStore = create(
           [sheetName]: data
         }
       })),
+      setAllMasterData: (data) => set({ masterData: data }),
 
       setFfpData: (data) => set({ ffpManualData: data }),
       setBackupData: (data) => set({ backupData: data }),
