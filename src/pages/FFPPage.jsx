@@ -238,7 +238,13 @@ function FFPPage() {
        if (nextCell) {
          nextCell.focus();
          // Select the text when navigating, like Excel does
-         setTimeout(() => nextCell.select(), 0);
+         // Fix: Only select if this cell is still the active element to prevent 
+         // focus bouncing when keys are pressed rapidly.
+         setTimeout(() => {
+           if (document.activeElement === nextCell) {
+             nextCell.select();
+           }
+         }, 0);
        }
     }
   };
