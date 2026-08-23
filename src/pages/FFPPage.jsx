@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import useStore from '../store';
 import { evaluateRow } from '../ffp-logic';
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, Plus, Trash2, Eye, EyeOff, Undo2, Redo2 } from 'lucide-react';
 import { arrayToTSV } from '../utils';
 
 const rawHeaders = [
@@ -33,6 +33,50 @@ function FFPPage() {
   const [selectedCol, setSelectedCol] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [hasAlerted, setHasAlerted] = useState(false);
+  const [hiddenRows, setHiddenRows] = useState({});
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  React.useEffect(() => {
+    if (history.length === 0 && ffpManualData) {
+      setHistory([ffpManualData]);
+      setHistoryIndex(0);
+    }
+  }, [ffpManualData, history]);
+
+  const updateFfpData = (newData) => {
+    setFfpData(newData);
+    let newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newData);
+    if (newHistory.length > 50) {
+      newHistory = newHistory.slice(newHistory.length - 50);
+    }
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setFfpData(history[newIndex]);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setFfpData(history[newIndex]);
+    }
+  };
+
+  const toggleHideRow = (index) => {
+    setHiddenRows(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   const formatCell = (rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
@@ -195,11 +239,13 @@ function FFPPage() {
     // ensure row exists and is long enough
     if(!updatedData[rowIndex]) {
         updatedData[rowIndex] = Array(47).fill("");
+    } else {
+        updatedData[rowIndex] = [...updatedData[rowIndex]];
     }
     while(updatedData[rowIndex].length < 47) updatedData[rowIndex].push("");
     
     updatedData[rowIndex][colIndex] = value;
-    setFfpData(updatedData);
+    updateFfpData(updatedData);
   };
 
   const handleKeyDown = (e, rIndex, cIndex) => {
@@ -250,18 +296,26 @@ function FFPPage() {
   };
 
   const addRow = () => {
-    setFfpData([...ffpManualData, Array(47).fill("")]);
+    updateFfpData([...ffpManualData, Array(47).fill("")]);
   };
 
   const addTenRows = () => {
     const newRows = Array.from({ length: 10 }, () => Array(47).fill(""));
-    setFfpData([...ffpManualData, ...newRows]);
+    updateFfpData([...ffpManualData, ...newRows]);
   };
 
   const removeRow = (index) => {
     const updatedData = [...ffpManualData];
     updatedData.splice(index, 1);
-    setFfpData(updatedData);
+    updateFfpData(updatedData);
+    
+    const newHidden = {};
+    Object.keys(hiddenRows).forEach(key => {
+       const k = parseInt(key);
+       if (k < index) newHidden[k] = true;
+       else if (k > index) newHidden[k - 1] = true;
+    });
+    setHiddenRows(newHidden);
   };
 
   const handleCopyAll = () => {
@@ -301,9 +355,9 @@ function FFPPage() {
        });
        // Append or Replace? Let's just Append for simplicity, or replace if empty
        if (ffpManualData.length === 0) {
-           setFfpData(newData);
+           updateFfpData(newData);
        } else {
-           setFfpData([...ffpManualData, ...newData]);
+           updateFfpData([...ffpManualData, ...newData]);
        }
      } catch (err) {
        alert("Pasting failed. Make sure you gave clipboard permissions.");
@@ -342,7 +396,8 @@ function FFPPage() {
       });
 
       addToBackupData(valueOnlyData);
-      setFfpData([]);
+      updateFfpData([]);
+      setHiddenRows({});
       alert("Current data has been moved to Backup page as static values.");
     }
   };
@@ -397,11 +452,21 @@ function FFPPage() {
          </div>
       </div>
       
-      <div className="actions-bar" style={{display: 'flex', gap: '1rem', marginBottom: '1rem'}}>
+      <div className="actions-bar" style={{display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap'}}>
          <button className="btn btn-primary" onClick={addRow}><Plus size={16}/> Add Row</button>
          <button className="btn btn-primary" onClick={addTenRows} style={{background: 'var(--accent)', color: '#000'}}><Plus size={16}/> Add 10 Rows</button>
          <button className="btn" onClick={handlePasteFFP}>Paste Rows Here</button>
          <button className="btn btn-success" onClick={handleCopyAll}><Copy size={16}/> Copy All Output Data</button>
+         
+         <div style={{display: 'flex', gap: '0.5rem', marginLeft: 'auto'}}>
+            <button className="btn" onClick={handleUndo} disabled={historyIndex <= 0} title="Undo">
+               <Undo2 size={16} /> Undo
+            </button>
+            <button className="btn" onClick={handleRedo} disabled={historyIndex >= history.length - 1} title="Redo">
+               <Redo2 size={16} /> Redo
+            </button>
+         </div>
+
          <button className="btn btn-danger" onClick={handleClearAll} style={{background: '#ef4444'}}>Clear All</button>
       </div>
 
@@ -534,11 +599,29 @@ function FFPPage() {
                    const balance = parseFloat(String(row[37] || "0").replace(/,/g, ''));
                    const isOliverGreen = Math.abs(balance) < 0.01 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
                    
+                   if (hiddenRows[rIndex]) {
+                     return (
+                       <tr key={rIndex} style={{ height: '28px', background: '#0f172a' }}>
+                           <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)'}}>
+                               <button onClick={() => toggleHideRow(rIndex)} title="Unhide row" style={{background: 'transparent', border:'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
+                                  <Eye size={16} />
+                               </button>
+                           </td>
+                           <td colSpan={100} style={{ padding: '0 10px', color: '#64748b', fontSize: '0.85rem' }}>
+                               Hidden Row {rIndex + 1}
+                           </td>
+                       </tr>
+                     );
+                   }
+
                    return (
                    <tr key={rIndex} style={isOliverGreen ? { background: '#6B8E23' } : {}}>
-                    <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)'}}>
-                      <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer'}}>
+                    <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', height: '100%', padding: '4px 0'}}>
+                      <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px'}}>
                          <Trash2 size={16} />
+                      </button>
+                      <button onClick={() => toggleHideRow(rIndex)} title="Hide row" style={{background: 'transparent', border:'none', color: '#a1a1aa', cursor: 'pointer', padding: '0 4px'}}>
+                         <EyeOff size={16} />
                       </button>
                     </td>
                     {row.map((cell, cIndex) => {
