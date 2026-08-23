@@ -33,7 +33,7 @@ function FFPPage() {
   const [selectedCol, setSelectedCol] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [hasAlerted, setHasAlerted] = useState(false);
-  const [hiddenRows, setHiddenRows] = useState({});
+  const [hiddenColumns, setHiddenColumns] = useState({});
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
@@ -71,11 +71,20 @@ function FFPPage() {
     }
   };
 
-  const toggleHideRow = (index) => {
-    setHiddenRows(prev => ({
+  const hideColumn = (index) => {
+    setHiddenColumns(prev => ({
       ...prev,
-      [index]: !prev[index]
+      [index]: true
     }));
+    setSelectedCol(null);
+  };
+
+  const unhideColumn = (index) => {
+    setHiddenColumns(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const formatCell = (rIndex, cIndex, val) => {
@@ -308,14 +317,6 @@ function FFPPage() {
     const updatedData = [...ffpManualData];
     updatedData.splice(index, 1);
     updateFfpData(updatedData);
-    
-    const newHidden = {};
-    Object.keys(hiddenRows).forEach(key => {
-       const k = parseInt(key);
-       if (k < index) newHidden[k] = true;
-       else if (k > index) newHidden[k - 1] = true;
-    });
-    setHiddenRows(newHidden);
   };
 
   const handleCopyAll = () => {
@@ -397,7 +398,7 @@ function FFPPage() {
 
       addToBackupData(valueOnlyData);
       updateFfpData([]);
-      setHiddenRows({});
+      setHiddenColumns({});
       alert("Current data has been moved to Backup page as static values.");
     }
   };
@@ -470,6 +471,21 @@ function FFPPage() {
          <button className="btn btn-danger" onClick={handleClearAll} style={{background: '#ef4444'}}>Clear All</button>
       </div>
 
+      {Object.keys(hiddenColumns).length > 0 && (
+         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>Hidden Columns:</span>
+            {Object.keys(hiddenColumns).map(colIndexStr => {
+               const i = parseInt(colIndexStr);
+               return (
+                 <div key={i} style={{background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem'}}>
+                    {COL_NAMES[i]} 
+                    <button onClick={() => unhideColumn(i)} style={{background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center'}} title="Unhide column"><Eye size={14}/></button>
+                 </div>
+               )
+            })}
+         </div>
+      )}
+
        {selectedCol !== null && (
          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '4px', border: `1px solid var(--accent)`, marginBottom: '1rem' }}>
             <span style={{fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 'bold', marginRight: '1rem'}}>
@@ -482,6 +498,10 @@ function FFPPage() {
             <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'top' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'top')}>Top</button>
             <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'middle' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'middle')}>Middle</button>
             <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnVerticalAlignments || columnVerticalAlignments[selectedCol] === 'bottom' || !columnVerticalAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'bottom')}>Bottom</button>
+            <span style={{borderLeft: '1px solid var(--border-color)', height: '20px', margin: '0 0.5rem'}}></span>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: 'var(--card-bg)', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-color)'}} onClick={() => hideColumn(selectedCol)}>
+               <EyeOff size={14} /> Hide Column
+            </button>
             <button onClick={() => setSelectedCol(null)} style={{marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 0.5rem'}}>✕</button>
          </div>
        )}
@@ -490,7 +510,7 @@ function FFPPage() {
       <div className="table-container" style={{flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
          <table style={{ 
             tableLayout: 'fixed', 
-            width: `${columnWidths.reduce((a, b) => a + b, 0) + 60}px`,
+            width: `${columnWidths.reduce((a, b, i) => a + (hiddenColumns[i] ? 0 : b), 0) + 60}px`,
             borderCollapse: 'collapse',
             zoom: zoomLevel / 100
          }}>
@@ -507,7 +527,7 @@ function FFPPage() {
                     minWidth: '60px',
                     padding: 0
                   }}></th>
-                  {COL_NAMES.map((_, i) => (
+                  {COL_NAMES.map((_, i) => !hiddenColumns[i] && (
                     <th key={`num-${i}`} 
                         onClick={() => setSelectedCol(prev => prev === i ? null : i)}
                         onDoubleClick={() => autoFitColumn(i)}
@@ -544,6 +564,7 @@ function FFPPage() {
                     borderBottom: '2px solid var(--accent)'
                   }}>Action</th>
                   {COL_NAMES.map((col, i) => {
+                    if (hiddenColumns[i]) return null;
                     let displayName = col;
                     if (i === 11) displayName = "Plot No (L)";
                     return (
@@ -599,32 +620,15 @@ function FFPPage() {
                    const balance = parseFloat(String(row[37] || "0").replace(/,/g, ''));
                    const isOliverGreen = Math.abs(balance) < 0.01 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
                    
-                   if (hiddenRows[rIndex]) {
-                     return (
-                       <tr key={rIndex} style={{ height: '28px', background: '#0f172a' }}>
-                           <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)'}}>
-                               <button onClick={() => toggleHideRow(rIndex)} title="Unhide row" style={{background: 'transparent', border:'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
-                                  <Eye size={16} />
-                               </button>
-                           </td>
-                           <td colSpan={100} style={{ padding: '0 10px', color: '#64748b', fontSize: '0.85rem' }}>
-                               Hidden Row {rIndex + 1}
-                           </td>
-                       </tr>
-                     );
-                   }
-
                    return (
                    <tr key={rIndex} style={isOliverGreen ? { background: '#6B8E23' } : {}}>
                     <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', height: '100%', padding: '4px 0'}}>
-                      <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px'}}>
+                      <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', width: '100%'}}>
                          <Trash2 size={16} />
-                      </button>
-                      <button onClick={() => toggleHideRow(rIndex)} title="Hide row" style={{background: 'transparent', border:'none', color: '#a1a1aa', cursor: 'pointer', padding: '0 4px'}}>
-                         <EyeOff size={16} />
                       </button>
                     </td>
                     {row.map((cell, cIndex) => {
+                       if (hiddenColumns[cIndex]) return null;
                        const isCalculated = CALCULATED_COLS.includes(cIndex);
                        let cellVal = cell;
                        if (cellVal === undefined || cellVal === null) cellVal = "";
