@@ -274,9 +274,15 @@ function FFPPage() {
        e.preventDefault();
     } else if (e.key === 'ArrowLeft' && isAtStart) {
        newC -= 1;
+       while (newC >= 0 && hiddenColumns[newC]) {
+           newC -= 1;
+       }
        e.preventDefault();
     } else if (e.key === 'ArrowRight' && isAtEnd) {
        newC += 1;
+       while (newC < 47 && hiddenColumns[newC]) {
+           newC += 1;
+       }
        e.preventDefault();
     } else {
        return;
