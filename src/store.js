@@ -22,6 +22,7 @@ const useStore = create(
       customHeaders: {},
       columnAlignments: {},
       columnVerticalAlignments: {},
+      hiddenColumns: {},
       
       setMasterData: (sheetName, data) => set((state) => ({
         masterData: {
@@ -46,6 +47,7 @@ const useStore = create(
       setColumnVerticalAlignment: (index, alignment) => set((state) => ({
         columnVerticalAlignments: { ...state.columnVerticalAlignments, [index]: alignment }
       })),
+      setHiddenColumns: (columns) => set({ hiddenColumns: columns }),
       
       clearAllData: () => set({ 
         masterData: { 
@@ -57,7 +59,8 @@ const useStore = create(
         columnWidths: Array(47).fill(120),
         customHeaders: {},
         columnAlignments: {},
-        columnVerticalAlignments: {}
+        columnVerticalAlignments: {},
+        hiddenColumns: {}
       })
     }),
     {

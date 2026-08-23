@@ -28,12 +28,11 @@ const COL_NAMES = Array.from({ length: 47 }, (_, i) => {
 const CALCULATED_COLS = [];
 
 function FFPPage() {
-  const { masterData, ffpManualData, setFfpData, addToBackupData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment } = useStore();
+  const { masterData, ffpManualData, setFfpData, addToBackupData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment, hiddenColumns, setHiddenColumns } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [hasAlerted, setHasAlerted] = useState(false);
-  const [hiddenColumns, setHiddenColumns] = useState({});
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
@@ -72,19 +71,17 @@ function FFPPage() {
   };
 
   const hideColumn = (index) => {
-    setHiddenColumns(prev => ({
-      ...prev,
+    setHiddenColumns({
+      ...(hiddenColumns || {}),
       [index]: true
-    }));
+    });
     setSelectedCol(null);
   };
 
   const unhideColumn = (index) => {
-    setHiddenColumns(prev => {
-      const next = { ...prev };
-      delete next[index];
-      return next;
-    });
+    const next = { ...(hiddenColumns || {}) };
+    delete next[index];
+    setHiddenColumns(next);
   };
 
   const formatCell = (rIndex, cIndex, val) => {
@@ -274,13 +271,13 @@ function FFPPage() {
        e.preventDefault();
     } else if (e.key === 'ArrowLeft' && isAtStart) {
        newC -= 1;
-       while (newC >= 0 && hiddenColumns[newC]) {
+       while (newC >= 0 && (hiddenColumns || {})[newC]) {
            newC -= 1;
        }
        e.preventDefault();
     } else if (e.key === 'ArrowRight' && isAtEnd) {
        newC += 1;
-       while (newC < 47 && hiddenColumns[newC]) {
+       while (newC < 47 && (hiddenColumns || {})[newC]) {
            newC += 1;
        }
        e.preventDefault();
@@ -477,10 +474,10 @@ function FFPPage() {
          <button className="btn btn-danger" onClick={handleClearAll} style={{background: '#ef4444'}}>Clear All</button>
       </div>
 
-      {Object.keys(hiddenColumns).length > 0 && (
+      {Object.keys(hiddenColumns || {}).length > 0 && (
          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>Hidden Columns:</span>
-            {Object.keys(hiddenColumns).map(colIndexStr => {
+            {Object.keys(hiddenColumns || {}).map(colIndexStr => {
                const i = parseInt(colIndexStr);
                return (
                  <div key={i} style={{background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem'}}>
@@ -516,7 +513,7 @@ function FFPPage() {
       <div className="table-container" style={{flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
          <table style={{ 
             tableLayout: 'fixed', 
-            width: `${columnWidths.reduce((a, b, i) => a + (hiddenColumns[i] ? 0 : b), 0) + 60}px`,
+            width: `${columnWidths.reduce((a, b, i) => a + ((hiddenColumns || {})[i] ? 0 : b), 0) + 60}px`,
             borderCollapse: 'collapse',
             zoom: zoomLevel / 100
          }}>
@@ -533,7 +530,7 @@ function FFPPage() {
                     minWidth: '60px',
                     padding: 0
                   }}></th>
-                  {COL_NAMES.map((_, i) => !hiddenColumns[i] && (
+                  {COL_NAMES.map((_, i) => !(hiddenColumns || {})[i] && (
                     <th key={`num-${i}`} 
                         onClick={() => setSelectedCol(prev => prev === i ? null : i)}
                         onDoubleClick={() => autoFitColumn(i)}
@@ -570,7 +567,7 @@ function FFPPage() {
                     borderBottom: '2px solid var(--accent)'
                   }}>Action</th>
                   {COL_NAMES.map((col, i) => {
-                    if (hiddenColumns[i]) return null;
+                    if ((hiddenColumns || {})[i]) return null;
                     let displayName = col;
                     if (i === 11) displayName = "Plot No (L)";
                     return (
@@ -634,7 +631,7 @@ function FFPPage() {
                       </button>
                     </td>
                     {row.map((cell, cIndex) => {
-                       if (hiddenColumns[cIndex]) return null;
+                       if ((hiddenColumns || {})[cIndex]) return null;
                        const isCalculated = CALCULATED_COLS.includes(cIndex);
                        let cellVal = cell;
                        if (cellVal === undefined || cellVal === null) cellVal = "";
