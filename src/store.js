@@ -23,6 +23,7 @@ const useStore = create(
       columnAlignments: {},
       columnVerticalAlignments: {},
       hiddenColumns: {},
+      hiddenColumnGroup: {},
       
       setMasterData: (sheetName, data) => set((state) => ({
         masterData: {
@@ -48,6 +49,7 @@ const useStore = create(
         columnVerticalAlignments: { ...state.columnVerticalAlignments, [index]: alignment }
       })),
       setHiddenColumns: (columns) => set({ hiddenColumns: columns }),
+      setHiddenColumnGroup: (group) => set({ hiddenColumnGroup: group }),
       
       clearAllData: () => set({ 
         masterData: { 
