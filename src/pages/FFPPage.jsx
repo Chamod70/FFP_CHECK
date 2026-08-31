@@ -257,7 +257,9 @@ function FFPPage() {
   });
 
   const handleCellChange = (rowIndex, colIndex, value) => {
-    const updatedData = [...ffpManualData];
+    // Get latest state directly to prevent stale closures during fast typing
+    const currentData = useStore.getState().ffpManualData;
+    const updatedData = [...currentData];
     // ensure row exists and is long enough
     if(!updatedData[rowIndex]) {
         updatedData[rowIndex] = Array(47).fill("");
@@ -267,7 +269,8 @@ function FFPPage() {
     while(updatedData[rowIndex].length < 47) updatedData[rowIndex].push("");
     
     updatedData[rowIndex][colIndex] = value;
-    updateFfpData(updatedData);
+    // Update store directly for speed; history is saved on blur
+    setFfpData(updatedData);
   };
 
   const handleKeyDown = (e, rIndex, cIndex) => {
@@ -690,7 +693,19 @@ function FFPPage() {
                                    onChange={(e) => handleCellChange(rIndex, cIndex, e.target.value)}
                                    onKeyDown={(e) => handleKeyDown(e, rIndex, cIndex)}
                                    onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
-                                   onBlur={() => setFocusedCell(null)}
+                                   onBlur={() => {
+                                      setFocusedCell(null);
+                                      const currentData = useStore.getState().ffpManualData;
+                                      if (history.length === 0 || history[historyIndex] !== currentData) {
+                                         let newHistory = history.slice(0, historyIndex + 1);
+                                         newHistory.push(currentData);
+                                         if (newHistory.length > 50) {
+                                            newHistory = newHistory.slice(newHistory.length - 50);
+                                         }
+                                         setHistory(newHistory);
+                                         setHistoryIndex(newHistory.length - 1);
+                                      }
+                                   }}
                                    className="cell-input"
                                    style={{
                                       textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
