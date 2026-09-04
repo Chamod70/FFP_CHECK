@@ -3,7 +3,7 @@ import useStore from '../store';
 import { parseTSV } from '../utils';
 import * as XLSX from 'xlsx';
 
-const SHEET_NAMES = ['H.COMP', 'MAST', 'WBT', 'WBT2', 'INS', 'EXT', 'RATE', 'DATE', 'WBT UPT'];
+const SHEET_NAMES = ['H.COMP', 'MAST', 'WBT', 'WBT2', 'INS', 'EXT', 'RATE', 'DATE', 'WBT UPT', 'FFP Summary'];
 
 function DataEntryPage() {
   const [activeTab, setActiveTab] = useState(SHEET_NAMES[0]);
