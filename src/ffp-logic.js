@@ -288,8 +288,26 @@ export const evaluateRow = (row, sheets) => {
   
   r[33] = manual[33] !== "" ? manual[33] : (r[46] === "Machine Harvested" ? "MA" : ""); // AH
   
-  // AI:AK (34-36) unchanged
+  // AI:AJ (34-35) unchanged
   
+  let ffpSummaryInterest = "";
+  if (r[5] && r[5].toString().trim() !== "" && r[5] !== "." && sheets['FFP Summary']) {
+     let sNo = r[5].toString().trim();
+     let summarySheet = sheets['FFP Summary'];
+     for(let i=0; i<summarySheet.length; i++) {
+        if (summarySheet[i][3] != null && summarySheet[i][3].toString().trim() === sNo) {
+           ffpSummaryInterest = summarySheet[i][13]; // 14th column (index 13) -> Interest
+           break;
+        }
+     }
+  }
+
+  if (ffpSummaryInterest !== "" && ffpSummaryInterest != null) {
+      r[36] = manual[36] !== "" ? manual[36] : ffpSummaryInterest;
+  } else {
+      r[36] = manual[36]; // Fallback to manual
+  }
+
   let deductions = num(r[27]) + num(r[28]) + num(r[29]) + num(r[30]) + num(r[31]) + num(r[32]) + (r[33] === "MA" ? 0 : num(r[33])) + num(r[34]) + num(r[35]) + num(r[36]);
   let balanceResult = manual[37] !== "" ? manual[37] : ((num(r[24]) + num(r[25]) + num(r[26])) - deductions);
   r[37] = manual[37] !== "" ? manual[37] : (balanceResult === 0 ? "0.00" : (balanceResult || "")); // AL
