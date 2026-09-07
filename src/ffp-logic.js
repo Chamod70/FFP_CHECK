@@ -253,7 +253,24 @@ export const evaluateRow = (row, sheets) => {
   r[24] = manual[24] !== "" ? manual[24] : (((num(r[19]) * 9150) + sumif(19, L, 25, wbt2) + sumif(19, L, 25, wbt)) || ""); // Y
   r[25] = manual[25] !== "" ? manual[25] : (((num(r[22]) + num(r[21])) * 1000) || ""); // Z
   r[26] = manual[26] !== "" ? manual[26] : (((num(r[22]) + num(r[21])) * 1500) || ""); // AA
-  r[27] = manual[27] !== "" ? manual[27] : ((((num(r[22]) + num(r[21])) * 2500) + (num(r[19]) * 2000)) || ""); // AB
+
+  let ffpSummaryHarvestAdv = "";
+  if (r[5] && r[5].toString().trim() !== "" && r[5] !== "." && sheets['FFP Summary']) {
+     let sNo = r[5].toString().trim();
+     let summarySheet = sheets['FFP Summary'];
+     for(let i=0; i<summarySheet.length; i++) {
+        if (summarySheet[i][3] != null && summarySheet[i][3].toString().trim() === sNo) {
+           ffpSummaryHarvestAdv = summarySheet[i][10]; // 11th column (index 10) -> Harvest Advance
+           break;
+        }
+     }
+  }
+
+  if (ffpSummaryHarvestAdv !== "" && ffpSummaryHarvestAdv != null) {
+      r[27] = manual[27] !== "" ? manual[27] : ffpSummaryHarvestAdv;
+  } else {
+      r[27] = manual[27] !== "" ? manual[27] : ((((num(r[22]) + num(r[21])) * 2500) + (num(r[19]) * 2000)) || ""); // AB
+  }
   
   // AC:AG (28-32)
   r[28] = manual[28]; // MTL Rec (index 28, col 29)
