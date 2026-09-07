@@ -176,6 +176,24 @@ export const evaluateRow = (row, sheets) => {
     return calculatedVal;
   };
   
+  let ffpSummaryPlotNo = "";
+  if (r[5] && r[5].toString().trim() !== "" && r[5] !== "." && sheets['FFP Summary']) {
+     let sNo = r[5].toString().trim();
+     let summarySheet = sheets['FFP Summary'];
+     for(let i=0; i<summarySheet.length; i++) {
+        if (summarySheet[i][3] != null && summarySheet[i][3].toString().trim() === sNo) {
+           ffpSummaryPlotNo = summarySheet[i][0]; // 1st column (index 0) -> Plot No
+           break;
+        }
+     }
+  }
+
+  if (ffpSummaryPlotNo !== "" && ffpSummaryPlotNo != null) {
+      r[11] = ffpSummaryPlotNo;
+  } else {
+      r[11] = manual[11];
+  }
+  
   let L = r[11]; // Plot No (L)
 
   // CRITICAL: If Plot No is empty, stop and return only manual inputs or blanks
