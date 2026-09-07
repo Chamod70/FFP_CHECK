@@ -199,7 +199,36 @@ export const evaluateRow = (row, sheets) => {
   
   r[3] = manual[3] !== "" ? manual[3] : maxifs(7, 19, L, wbt); // D
   
-  // E:L (4-11) is unchanged
+  // Custom logic for E (index 4) - Harvesting Date from FFP Summary
+  let ffpSummaryHarvestDate = "";
+  if (r[5] && r[5].toString().trim() !== "" && r[5] !== "." && sheets['FFP Summary']) {
+     let sNo = r[5].toString().trim();
+     let summarySheet = sheets['FFP Summary'];
+     for(let i=0; i<summarySheet.length; i++) {
+        if (summarySheet[i][3] != null && summarySheet[i][3].toString().trim() === sNo) {
+           let rawDate = summarySheet[i][5]; // 6th column (index 5) -> Harvest Date
+           if (rawDate && typeof rawDate === 'string' && rawDate.includes('-')) {
+              let parts = rawDate.split('-');
+              if (parts.length === 3) {
+                 ffpSummaryHarvestDate = `${parts[1]}/${parts[2]}/${parts[0]}`;
+              } else {
+                 ffpSummaryHarvestDate = rawDate;
+              }
+           } else {
+              ffpSummaryHarvestDate = rawDate;
+           }
+           break;
+        }
+     }
+  }
+
+  if (ffpSummaryHarvestDate !== "" && ffpSummaryHarvestDate != null) {
+      r[4] = manual[4] !== "" ? manual[4] : ffpSummaryHarvestDate;
+  } else {
+      r[4] = manual[4];
+  }
+  
+  // F:L (5-11) is unchanged except E which we just handled
   // Calculation for H (index 7): IF(D=E, "", "H/WRONG")
   let valD = String(r[3]).trim();
   let valE = String(r[4]).trim();
