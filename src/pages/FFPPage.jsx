@@ -675,10 +675,39 @@ function FFPPage() {
                        const isCalculated = CALCULATED_COLS.includes(cIndex);
                        let cellVal = cell;
                        if (cellVal === undefined || cellVal === null) cellVal = "";
+                       
+                       let customBackground = undefined;
+                       let customColor = undefined;
+                       
+                       if (cIndex === 37) { // 38th column (0-indexed 37) -> Balance
+                           const sheetNo = row[5]; // 6th column (0-indexed 5) -> Sheet No
+                           if (sheetNo && sheetNo.toString().trim() !== "" && sheetNo !== ".") {
+                               const ffpSummaryData = masterData['FFP Summary'] || [];
+                               // Find row in FFP Summary where 4th column (index 3) matches Sheet No
+                               const summaryRow = ffpSummaryData.find(sRow => {
+                                   return sRow[3] !== undefined && sRow[3] !== null && sRow[3].toString().trim() === sheetNo.toString().trim();
+                               });
+                               
+                               if (summaryRow) {
+                                   const bankedAmount = parseFloat(String(summaryRow[14] || "0").replace(/,/g, '')); // 15th column (index 14) -> Banked Amount
+                                   const balanceAmount = parseFloat(String(cellVal || "0").replace(/,/g, ''));
+                                   
+                                   if (!isNaN(bankedAmount) && !isNaN(balanceAmount)) {
+                                       if (Math.abs(bankedAmount - balanceAmount) < 0.01) {
+                                           customBackground = '#bae6fd'; // light blue
+                                           customColor = '#000'; // black text for contrast
+                                       } else {
+                                           customBackground = '#fca5a5'; // light red
+                                           customColor = '#000'; // black text for contrast
+                                       }
+                                   }
+                               }
+                           }
+                       }
 
                        return (
                           <td key={cIndex} style={{
-                            ...(isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {}),
+                            ...(customBackground ? {background: customBackground} : (isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {})),
                             width: `${columnWidths[cIndex]}px`,
                             position: 'relative'
                           }}>
@@ -712,10 +741,11 @@ function FFPPage() {
                                       verticalAlign: columnVerticalAlignments && columnVerticalAlignments[cIndex] ? columnVerticalAlignments[cIndex] : 'bottom',
                                       outline: 'none',
                                       boxShadow: 'none',
-                                      color: isCalculated ? 'var(--accent)' : '#fff',
+                                      color: customColor ? customColor : (isCalculated ? 'var(--accent)' : '#fff'),
                                       cursor: 'text',
                                       flex: 1,
-                                      minWidth: 0
+                                      minWidth: 0,
+                                      background: 'transparent'
                                    }}
                                 />
                                 {cIndex === 11 && cellVal && cellVal.toString().trim() !== "" && cellVal !== "." && (
