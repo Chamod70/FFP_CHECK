@@ -387,9 +387,10 @@ function FFPPage() {
      }
   };
 
-  const plotCount = ffpManualData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
+  const plotCount = liveData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
 
   const totalBalance = liveData.reduce((sum, row) => {
+     if (!row[11] || row[11].toString().trim() === "" || row[11] === ".") return sum;
      let val = String(row[37] || "0").replace(/,/g, '');
      return sum + (parseFloat(val) || 0);
   }, 0);
