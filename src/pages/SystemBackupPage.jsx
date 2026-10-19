@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useStore from '../store';
-import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2, Clock, Folder, FolderCheck, Play, RefreshCw } from 'lucide-react';
+import { 
+  getAutoBackupConfig, 
+  saveAutoBackupConfig, 
+  getStoredDirectoryHandle, 
+  selectBackupFolder, 
+  performBackup 
+} from '../services/autoBackupService';
 
 function SystemBackupPage() {
   const { masterData, ffpManualData, backupData, setAllMasterData, setFfpData, setBackupData } = useStore();
@@ -19,6 +26,82 @@ function SystemBackupPage() {
 
   const [restoreFile, setRestoreFile] = useState(null);
   const [restoreStatus, setRestoreStatus] = useState(null); // { type: 'success' | 'error', message: '' }
+
+  // Auto Backup State
+  const [autoConfig, setAutoConfig] = useState(getAutoBackupConfig());
+  const [hasFolderHandle, setHasFolderHandle] = useState(false);
+  const [folderName, setFolderName] = useState('');
+  const [autoStatusMessage, setAutoStatusMessage] = useState(null);
+  const [isTestingBackup, setIsTestingBackup] = useState(false);
+
+  useEffect(() => {
+    checkFolderStatus();
+  }, []);
+
+  const checkFolderStatus = async () => {
+    const handle = await getStoredDirectoryHandle();
+    if (handle) {
+      setHasFolderHandle(true);
+      setFolderName(handle.name || 'FFP BACKUP');
+    } else {
+      setHasFolderHandle(false);
+      setFolderName('');
+    }
+    setAutoConfig(getAutoBackupConfig());
+  };
+
+  const handleToggleAutoBackup = () => {
+    const updated = { ...autoConfig, enabled: !autoConfig.enabled };
+    setAutoConfig(updated);
+    saveAutoBackupConfig(updated);
+  };
+
+  const handleTimeChange = (e) => {
+    const updated = { ...autoConfig, time: e.target.value };
+    setAutoConfig(updated);
+    saveAutoBackupConfig(updated);
+  };
+
+  const handleSelectFolder = async () => {
+    try {
+      const handle = await selectBackupFolder();
+      setHasFolderHandle(true);
+      setFolderName(handle.name || 'FFP BACKUP');
+      setAutoStatusMessage({
+        type: 'success',
+        message: `Successfully linked folder: "${handle.name}". Backups at 4:00 PM will now save directly inside this folder!`
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setAutoStatusMessage({
+          type: 'error',
+          message: err.message || 'Could not select folder.'
+        });
+      }
+    }
+  };
+
+  const handleRunManualAutoBackup = async () => {
+    setIsTestingBackup(true);
+    setAutoStatusMessage(null);
+    try {
+      const res = await performBackup('manual_test');
+      setAutoStatusMessage({
+        type: 'success',
+        message: res.savedDirectly 
+          ? `Backup created successfully inside folder "${res.targetFolder || 'FFP BACKUP'}" as ${res.fileName}!`
+          : `Backup downloaded successfully as ${res.fileName}!`
+      });
+      checkFolderStatus();
+    } catch (err) {
+      setAutoStatusMessage({
+        type: 'error',
+        message: `Backup failed: ${err.message}`
+      });
+    } finally {
+      setIsTestingBackup(false);
+    }
+  };
 
   const handleBackupToggle = (key) => {
     setSelectedForBackup(prev => ({ ...prev, [key]: !prev[key] }));
@@ -106,7 +189,157 @@ function SystemBackupPage() {
     <div className="page-container" style={{maxWidth: '100%', padding: '2rem'}}>
       <div className="header" style={{ marginBottom: '2rem' }}>
         <h1 style={{marginTop: 0}}>System Backup & Restore</h1>
-        <p>Safely backup all your system data to a single JSON file, or restore data from a previous backup.</p>
+        <p>Safely backup all your system data to a single JSON file, schedule daily automatic backups at 4:00 PM, or restore previous data.</p>
+      </div>
+
+      {/* Daily Automatic Backup Card */}
+      <div className="card" style={{ 
+        padding: '2rem', 
+        marginBottom: '2rem', 
+        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)',
+        border: '1px solid rgba(59, 130, 246, 0.3)',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.2)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#60a5fa' }}>
+            <Clock size={28} />
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#f8fafc' }}>Daily Auto-Backup Schedule (හැමදාම සවස 4.00ට ස්වයංක්‍රීය බැකප්)</h2>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.95rem' }}>
+                Automatically generates and saves your full system backup every day at 4:00 PM into your desktop folder.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
+              <input 
+                type="checkbox" 
+                checked={autoConfig.enabled} 
+                onChange={handleToggleAutoBackup} 
+                style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} 
+              />
+              <span style={{ fontWeight: 600, color: autoConfig.enabled ? '#34d399' : '#94a3b8' }}>
+                {autoConfig.enabled ? 'Auto Backup Active' : 'Auto Backup Disabled'}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px' }}>
+          
+          {/* Target Folder Setup */}
+          <div>
+            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>
+              DESKTOP TARGET FOLDER
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <button 
+                className="btn" 
+                onClick={handleSelectFolder}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  background: hasFolderHandle ? '#059669' : '#2563eb', 
+                  color: '#fff',
+                  border: 'none',
+                  padding: '0.6rem 1rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 500
+                }}
+              >
+                {hasFolderHandle ? <FolderCheck size={18} /> : <Folder size={18} />}
+                {hasFolderHandle ? `Linked: ${folderName}` : 'Select "FFP BACKUP" Folder'}
+              </button>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: hasFolderHandle ? '#34d399' : '#fbbf24' }}>
+              {hasFolderHandle 
+                ? `✅ Linked to: C:\\Users\\Chamod.Champika\\Desktop\\${folderName} (Direct Silent Save)`
+                : '⚠️ Folder not linked yet. Click above to pick "Desktop\\FFP BACKUP" so backups save directly.'}
+            </div>
+          </div>
+
+          {/* Time Setup */}
+          <div>
+            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>
+              BACKUP TIME
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <input 
+                type="time" 
+                value={autoConfig.time || '16:00'} 
+                onChange={handleTimeChange}
+                style={{
+                  background: '#0f172a',
+                  border: '1px solid #334155',
+                  color: '#f8fafc',
+                  padding: '0.55rem 0.85rem',
+                  borderRadius: '6px',
+                  fontSize: '1.1rem',
+                  fontWeight: 600
+                }}
+              />
+              <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>(Default: 04:00 PM)</span>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+              Next auto-backup: <span style={{ color: '#60a5fa', fontWeight: 600 }}>Today at {autoConfig.time || '16:00'}</span>
+            </div>
+          </div>
+
+          {/* Last Backup Info & Immediate Test */}
+          <div>
+            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>
+              STATUS & TEST RUN
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.75rem' }}>
+              Last Backup: <span style={{ color: autoConfig.lastBackupTimestamp ? '#34d399' : '#94a3b8' }}>
+                {autoConfig.lastBackupTimestamp 
+                  ? new Date(autoConfig.lastBackupTimestamp).toLocaleString() 
+                  : 'No backup recorded yet'}
+              </span>
+            </div>
+            <button 
+              className="btn" 
+              onClick={handleRunManualAutoBackup}
+              disabled={isTestingBackup}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                background: '#475569',
+                color: '#fff',
+                border: 'none',
+                padding: '0.6rem 1rem',
+                borderRadius: '6px',
+                cursor: isTestingBackup ? 'not-allowed' : 'pointer',
+                fontWeight: 500
+              }}
+            >
+              {isTestingBackup ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
+              {isTestingBackup ? 'Saving Backup...' : 'Run Backup Now (Test)'}
+            </button>
+          </div>
+
+        </div>
+
+        {autoStatusMessage && (
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.85rem 1.25rem',
+            borderRadius: '8px',
+            background: autoStatusMessage.type === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+            border: `1px solid ${autoStatusMessage.type === 'error' ? 'var(--danger)' : 'var(--success)'}`,
+            color: autoStatusMessage.type === 'error' ? '#f87171' : '#34d399',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+          }}>
+            {autoStatusMessage.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
+            <span>{autoStatusMessage.message}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
@@ -115,7 +348,7 @@ function SystemBackupPage() {
         <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)' }}>
             <Download size={24} />
-            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Create Backup</h2>
+            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Manual Backup Export</h2>
           </div>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Select the data you want to include in the backup file:</p>
           
@@ -140,7 +373,7 @@ function SystemBackupPage() {
             disabled={!selectedForBackup.ffpData && !selectedForBackup.masterData && !selectedForBackup.backupData}
             style={{ alignSelf: 'flex-start', marginTop: 'auto' }}
           >
-            <Download size={18} /> Download JSON Backup
+            <Download size={18} /> Download JSON Backup Now
           </button>
         </div>
 
@@ -207,3 +440,4 @@ function SystemBackupPage() {
 }
 
 export default SystemBackupPage;
+
