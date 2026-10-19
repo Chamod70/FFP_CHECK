@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import useStore from '../store';
-import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2, Clock, Folder, FolderCheck, Play, RefreshCw } from 'lucide-react';
+import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2, Clock, Folder, FolderCheck, Play, RefreshCw, KeyRound, RotateCcw } from 'lucide-react';
 import { 
   getAutoBackupConfig, 
   saveAutoBackupConfig, 
+  resetScheduledBackupToday,
   getStoredDirectoryHandle, 
   selectBackupFolder, 
-  performBackup 
+  performBackup,
+  verifyPermission
 } from '../services/autoBackupService';
 
 function SystemBackupPage() {
@@ -30,6 +32,7 @@ function SystemBackupPage() {
   // Auto Backup State
   const [autoConfig, setAutoConfig] = useState(getAutoBackupConfig());
   const [hasFolderHandle, setHasFolderHandle] = useState(false);
+  const [folderPermissionGranted, setFolderPermissionGranted] = useState(true);
   const [folderName, setFolderName] = useState('');
   const [autoStatusMessage, setAutoStatusMessage] = useState(null);
   const [isTestingBackup, setIsTestingBackup] = useState(false);
@@ -43,9 +46,16 @@ function SystemBackupPage() {
     if (handle) {
       setHasFolderHandle(true);
       setFolderName(handle.name || 'FFP BACKUP');
+      try {
+        const isGranted = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted';
+        setFolderPermissionGranted(isGranted);
+      } catch (e) {
+        setFolderPermissionGranted(false);
+      }
     } else {
       setHasFolderHandle(false);
       setFolderName('');
+      setFolderPermissionGranted(false);
     }
     setAutoConfig(getAutoBackupConfig());
   };
@@ -57,19 +67,50 @@ function SystemBackupPage() {
   };
 
   const handleTimeChange = (e) => {
-    const updated = { ...autoConfig, time: e.target.value };
+    const newTime = e.target.value;
+    // When time changes, reset the lock so the new scheduled time can trigger immediately!
+    const updated = { ...autoConfig, time: newTime, lastScheduledKey: null };
     setAutoConfig(updated);
     saveAutoBackupConfig(updated);
+  };
+
+  const handleResetScheduleLock = () => {
+    resetScheduledBackupToday();
+    setAutoConfig(getAutoBackupConfig());
+    setAutoStatusMessage({
+      type: 'success',
+      message: 'Schedule lock reset! Auto backup will trigger once the scheduled time is reached.'
+    });
+  };
+
+  const handleGrantPermission = async () => {
+    const handle = await getStoredDirectoryHandle();
+    if (handle) {
+      const granted = await verifyPermission(handle, true);
+      setFolderPermissionGranted(granted);
+      if (granted) {
+        setAutoStatusMessage({
+          type: 'success',
+          message: 'Folder access granted! Automatic silent saving is enabled.'
+        });
+      } else {
+        setAutoStatusMessage({
+          type: 'error',
+          message: 'Permission was not granted. Browser will fallback to downloading.'
+        });
+      }
+    }
   };
 
   const handleSelectFolder = async () => {
     try {
       const handle = await selectBackupFolder();
       setHasFolderHandle(true);
+      setFolderPermissionGranted(true);
       setFolderName(handle.name || 'FFP BACKUP');
       setAutoStatusMessage({
         type: 'success',
-        message: `Successfully linked folder: "${handle.name}". Backups at 4:00 PM will now save directly inside this folder!`
+        message: `Successfully linked folder: "${handle.name}". Backups at ${autoConfig.time || '16:00'} will save directly inside!`
       });
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -85,7 +126,7 @@ function SystemBackupPage() {
     setIsTestingBackup(true);
     setAutoStatusMessage(null);
     try {
-      const res = await performBackup('manual_test');
+      const res = await performBackup('manual_test', true);
       setAutoStatusMessage({
         type: 'success',
         message: res.savedDirectly 
@@ -233,7 +274,7 @@ function SystemBackupPage() {
             <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>
               DESKTOP TARGET FOLDER
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
               <button 
                 className="btn" 
                 onClick={handleSelectFolder}
@@ -253,18 +294,42 @@ function SystemBackupPage() {
                 {hasFolderHandle ? <FolderCheck size={18} /> : <Folder size={18} />}
                 {hasFolderHandle ? `Linked: ${folderName}` : 'Select "FFP BACKUP" Folder'}
               </button>
+
+              {hasFolderHandle && !folderPermissionGranted && (
+                <button
+                  className="btn"
+                  onClick={handleGrantPermission}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    background: '#d97706',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '0.6rem 0.85rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <KeyRound size={16} /> Re-authorize Access
+                </button>
+              )}
             </div>
-            <div style={{ fontSize: '0.85rem', color: hasFolderHandle ? '#34d399' : '#fbbf24' }}>
+            <div style={{ fontSize: '0.85rem', color: hasFolderHandle && folderPermissionGranted ? '#34d399' : '#fbbf24' }}>
               {hasFolderHandle 
-                ? `✅ Linked to: C:\\Users\\Chamod.Champika\\Desktop\\${folderName} (Direct Silent Save)`
-                : '⚠️ Folder not linked yet. Click above to pick "Desktop\\FFP BACKUP" so backups save directly.'}
+                ? (folderPermissionGranted 
+                    ? `✅ Direct Silent Save active to: Desktop\\${folderName}` 
+                    : `⚠️ Folder linked, but click "Re-authorize Access" to enable direct saving`)
+                : '⚠️ Folder not linked yet. Click above to select Desktop\\FFP BACKUP.'}
             </div>
           </div>
 
           {/* Time Setup */}
           <div>
             <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>
-              BACKUP TIME
+              BACKUP TIME & SCHEDULE STATUS
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <input 
@@ -283,8 +348,34 @@ function SystemBackupPage() {
               />
               <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>(Default: 04:00 PM)</span>
             </div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>
-              Next auto-backup: <span style={{ color: '#60a5fa', fontWeight: 600 }}>Today at {autoConfig.time || '16:00'}</span>
+            <div style={{ fontSize: '0.85rem', marginTop: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {autoConfig.lastScheduledKey === `${new Date().toISOString().split('T')[0]}_${autoConfig.time || '16:00'}` ? (
+                <>
+                  <span style={{ color: '#34d399', fontWeight: 600 }}>✅ Completed for {autoConfig.time} today!</span>
+                  <button 
+                    onClick={handleResetScheduleLock}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid #475569',
+                      color: '#cbd5e1',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer'
+                    }}
+                    title="Click if you want to test again at a different time"
+                  >
+                    <RotateCcw size={12} /> Reset Lock to Re-test
+                  </button>
+                </>
+              ) : (
+                <span style={{ color: '#60a5fa', fontWeight: 500 }}>
+                  ⏳ Scheduled for: <strong style={{ color: '#fff' }}>Today at {autoConfig.time || '16:00'}</strong> (Checks every 5s)
+                </span>
+              )}
             </div>
           </div>
 
@@ -294,9 +385,9 @@ function SystemBackupPage() {
               STATUS & TEST RUN
             </div>
             <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.75rem' }}>
-              Last Backup: <span style={{ color: autoConfig.lastBackupTimestamp ? '#34d399' : '#94a3b8' }}>
+              Last Backup: <span style={{ color: autoConfig.lastBackupTimestamp ? '#34d399' : '#94a3b8', fontWeight: 500 }}>
                 {autoConfig.lastBackupTimestamp 
-                  ? new Date(autoConfig.lastBackupTimestamp).toLocaleString() 
+                  ? new Date(autoConfig.lastBackupTimestamp).toLocaleTimeString() + ` (${autoConfig.lastBackupSource === 'scheduled' ? 'Scheduled' : 'Manual'})` 
                   : 'No backup recorded yet'}
               </span>
             </div>

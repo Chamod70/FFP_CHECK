@@ -15,10 +15,10 @@ function App() {
     // Check immediately on load
     checkAndRunAutoBackup();
 
-    // Check periodically every 30 seconds
+    // Check periodically every 5 seconds
     const interval = setInterval(() => {
       checkAndRunAutoBackup();
-    }, 30000);
+    }, 5000);
 
     // Listen for backup event
     const handleBackupCompleted = (e) => {

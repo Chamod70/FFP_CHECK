@@ -14,8 +14,9 @@ export const getAutoBackupConfig = () => {
   return {
     enabled: true,
     time: '16:00', // 4:00 PM
-    lastBackupDate: null,
+    lastScheduledKey: null, // e.g. "2026-10-19_16:00"
     lastBackupTimestamp: null,
+    lastBackupSource: null,
     folderName: null
   };
 };
@@ -26,6 +27,12 @@ export const saveAutoBackupConfig = (config) => {
   } catch (e) {
     console.error('Failed to save auto backup config', e);
   }
+};
+
+export const resetScheduledBackupToday = () => {
+  const config = getAutoBackupConfig();
+  config.lastScheduledKey = null;
+  saveAutoBackupConfig(config);
 };
 
 export const getStoredDirectoryHandle = async () => {
@@ -56,17 +63,22 @@ export const setStoredDirectoryHandle = async (handle) => {
   }
 };
 
-// Check permission or request permission if needed
-export const verifyPermission = async (fileHandle, readWrite = true) => {
-  const options = {};
-  if (readWrite) {
-    options.mode = 'readwrite';
-  }
-  if ((await fileHandle.queryPermission(options)) === 'granted') {
-    return true;
-  }
-  if ((await fileHandle.requestPermission(options)) === 'granted') {
-    return true;
+// Check permission without throwing in automated background tasks
+export const verifyPermission = async (fileHandle, isUserGesture = false) => {
+  if (!fileHandle) return false;
+  const options = { mode: 'readwrite' };
+  try {
+    const status = await fileHandle.queryPermission(options);
+    if (status === 'granted') {
+      return true;
+    }
+    // Only prompt for permission if we have a direct user interaction (click)
+    if (isUserGesture && status === 'prompt') {
+      const requestStatus = await fileHandle.requestPermission(options);
+      return requestStatus === 'granted';
+    }
+  } catch (err) {
+    console.warn('[FFP Backup] verifyPermission:', err);
   }
   return false;
 };
@@ -81,12 +93,15 @@ export const selectBackupFolder = async () => {
     mode: 'readwrite',
     startIn: 'desktop'
   });
+  
+  // Explicitly request readwrite permission while we have the user gesture
+  await verifyPermission(handle, true);
   await setStoredDirectoryHandle(handle);
   return handle;
 };
 
 // Perform backup creation
-export const performBackup = async (source = 'auto') => {
+export const performBackup = async (source = 'manual_test', isUserGesture = true) => {
   const state = useStore.getState();
   const dateObj = new Date();
   const dateStr = dateObj.toISOString().split('T')[0];
@@ -117,7 +132,7 @@ export const performBackup = async (source = 'auto') => {
 
   if (dirHandle) {
     try {
-      const hasPermission = await verifyPermission(dirHandle, true);
+      const hasPermission = await verifyPermission(dirHandle, isUserGesture);
       if (hasPermission) {
         const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
         const writable = await fileHandle.createWritable();
@@ -125,9 +140,12 @@ export const performBackup = async (source = 'auto') => {
         await writable.close();
         savedDirectly = true;
         targetFolder = dirHandle.name;
+        console.log(`[FFP Backup] Successfully saved directly to ${targetFolder}/${fileName}`);
+      } else {
+        console.warn('[FFP Backup] Folder permission not granted, falling back to download');
       }
     } catch (err) {
-      console.warn('Could not write directly to folder handle, falling back to download:', err);
+      console.warn('[FFP Backup] Could not write directly to folder handle, falling back to download:', err);
     }
   }
 
@@ -142,12 +160,17 @@ export const performBackup = async (source = 'auto') => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    console.log(`[FFP Backup] Triggered browser download: ${fileName}`);
   }
 
-  // Update last backup config
+  // Update backup timestamp in config
   const config = getAutoBackupConfig();
-  config.lastBackupDate = dateStr;
   config.lastBackupTimestamp = dateObj.toISOString();
+  config.lastBackupSource = source;
+  // If this was a scheduled backup, mark its key
+  if (source === 'scheduled') {
+    config.lastScheduledKey = `${dateStr}_${config.time || '16:00'}`;
+  }
   saveAutoBackupConfig(config);
 
   // Dispatch event for UI notifications
@@ -176,22 +199,31 @@ export const checkAndRunAutoBackup = async () => {
 
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
+  const targetTime = config.time || '16:00';
+  const scheduledKey = `${todayStr}_${targetTime}`;
 
-  // Already backed up today
-  if (config.lastBackupDate === todayStr) {
+  // Check if this specific scheduled time was already run today
+  if (config.lastScheduledKey === scheduledKey) {
     return;
   }
 
-  // Parse target time (default 16:00 = 4:00 PM)
-  const [targetHour, targetMinute] = (config.time || '16:00').split(':').map(Number);
+  // Parse target time (e.g. 16:00)
+  const [targetHour, targetMinute] = targetTime.split(':').map(Number);
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
 
-  // Check if current time is at or after scheduled time
-  if (currentHour > targetHour || (currentHour === targetHour && currentMinute >= targetMinute)) {
-    console.log(`[FFP Auto Backup] Triggering daily backup for ${todayStr} at ${now.toLocaleTimeString()}`);
+  // Check if current time has reached or passed the scheduled time
+  const isTimeReached = currentHour > targetHour || (currentHour === targetHour && currentMinute >= targetMinute);
+
+  if (isTimeReached) {
+    console.log(`[FFP Auto Backup] Triggering scheduled backup for ${scheduledKey} at ${now.toLocaleTimeString()}`);
+    
+    // Prevent double firing immediately
+    config.lastScheduledKey = scheduledKey;
+    saveAutoBackupConfig(config);
+
     try {
-      await performBackup('scheduled_4pm');
+      await performBackup('scheduled', false);
     } catch (err) {
       console.error('[FFP Auto Backup] Error executing scheduled backup:', err);
     }
