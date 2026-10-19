@@ -100,6 +100,35 @@ function FFPPage() {
     setHiddenColumnGroup(nextGroup);
   };
 
+  const hideAllInGroup = () => {
+    const nextHidden = { ...(hiddenColumns || {}) };
+    Object.keys(hiddenColumnGroup || {}).forEach(idx => {
+      nextHidden[idx] = true;
+    });
+    setHiddenColumns(nextHidden);
+    setSelectedCol(null);
+  };
+
+  const unhideAllInGroup = () => {
+    const nextHidden = { ...(hiddenColumns || {}) };
+    Object.keys(hiddenColumnGroup || {}).forEach(idx => {
+      delete nextHidden[idx];
+    });
+    setHiddenColumns(nextHidden);
+  };
+
+  const clearGroup = () => {
+    setHiddenColumnGroup({});
+  };
+
+  const addPresetDataColumnsToGroup = () => {
+    const newGroup = {};
+    for (let i = 4; i <= 37; i++) {
+      newGroup[i] = true;
+    }
+    setHiddenColumnGroup(newGroup);
+  };
+
   const formatCell = (rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
      let strValue = String(val);
@@ -509,26 +538,79 @@ function FFPPage() {
          </div>
       )}
 
-      {Object.keys(hiddenColumnGroup || {}).length > 0 && (
-         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>Hide Group:</span>
-            {Object.keys(hiddenColumnGroup || {}).map(colIndexStr => {
-               const i = parseInt(colIndexStr);
-               return (
-                 <div key={`hg-${i}`} style={{background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--success)', borderRadius: '4px', padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem'}}>
-                    {COL_NAMES[i]} 
-                    <button onClick={() => removeFromGroup(i)} style={{background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center'}} title="Remove from group">✕</button>
-                 </div>
-               )
-            })}
-            <button className="btn" onClick={() => setHiddenColumns({ ...(hiddenColumns || {}), ...(hiddenColumnGroup || {}) })} style={{marginLeft: '0.5rem', padding: '0.25rem 0.75rem', fontSize: '0.8rem', background: 'var(--success)', color: '#fff', border: 'none'}}>
-               Hide Group Columns
-            </button>
-         </div>
-      )}
+      {/* Hide Group Management Bar */}
+      <div style={{ 
+         display: 'flex', 
+         gap: '0.75rem', 
+         alignItems: 'center', 
+         marginBottom: '1rem', 
+         flexWrap: 'wrap',
+         background: 'rgba(16, 185, 129, 0.08)',
+         border: '1px solid rgba(16, 185, 129, 0.3)',
+         padding: '0.5rem 0.75rem',
+         borderRadius: '6px'
+      }}>
+         <span style={{fontSize: '0.85rem', color: '#10b981', fontWeight: 'bold'}}>
+            Hide Group ({Object.keys(hiddenColumnGroup || {}).length} columns):
+         </span>
+
+         {Object.keys(hiddenColumnGroup || {}).length > 0 ? (
+            <>
+               <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {Object.keys(hiddenColumnGroup || {}).map(colIndexStr => {
+                     const i = parseInt(colIndexStr);
+                     const isHidden = !!(hiddenColumns || {})[i];
+                     return (
+                       <div key={`hg-${i}`} style={{
+                          background: isHidden ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.2)', 
+                          border: `1px solid ${isHidden ? '#ef4444' : '#10b981'}`, 
+                          borderRadius: '4px', 
+                          padding: '0.15rem 0.45rem', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.35rem', 
+                          fontSize: '0.75rem',
+                          color: isHidden ? '#fca5a5' : '#a7f3d0'
+                       }}>
+                          <span>{COL_NAMES[i]} {isHidden ? '(Hidden)' : ''}</span> 
+                          <button onClick={() => removeFromGroup(i)} style={{background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center'}} title="Remove from group">✕</button>
+                       </div>
+                     );
+                  })}
+               </div>
+
+               {Object.keys(hiddenColumnGroup || {}).some(idx => !(hiddenColumns || {})[idx]) ? (
+                  <button className="btn" onClick={hideAllInGroup} style={{padding: '0.3rem 0.85rem', fontSize: '0.85rem', background: '#10b981', color: '#fff', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer'}}>
+                     <EyeOff size={15} /> Hide Group Columns
+                  </button>
+               ) : (
+                  <button className="btn" onClick={unhideAllInGroup} style={{padding: '0.3rem 0.85rem', fontSize: '0.85rem', background: '#0284c7', color: '#fff', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer'}}>
+                     <Eye size={15} /> Unhide Group Columns
+                  </button>
+               )}
+
+               <button className="btn" onClick={clearGroup} style={{padding: '0.25rem 0.5rem', fontSize: '0.75rem', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', cursor: 'pointer'}}>
+                  Clear Group
+               </button>
+            </>
+         ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+               <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                  No columns added to group yet. Click any column number (1, 2, 3...) to add, or load preset:
+               </span>
+               <button 
+                  className="btn" 
+                  onClick={addPresetDataColumnsToGroup} 
+                  style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', background: '#059669', color: '#fff', border: 'none', fontWeight: 500, cursor: 'pointer' }}
+               >
+                  + Add Data Columns (Col 5 - 38) to Group
+               </button>
+            </div>
+         )}
+      </div>
 
        {selectedCol !== null && (
-         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '4px', border: `1px solid var(--accent)`, marginBottom: '1rem' }}>
+         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '4px', border: `1px solid var(--accent)`, marginBottom: '1rem', flexWrap: 'wrap' }}>
             <span style={{fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 'bold', marginRight: '1rem'}}>
               Align Column {selectedCol + 1} ({COL_NAMES[selectedCol]}):
             </span>
@@ -540,10 +622,10 @@ function FFPPage() {
             <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: columnVerticalAlignments && columnVerticalAlignments[selectedCol] === 'middle' ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'middle')}>Middle</button>
             <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: !columnVerticalAlignments || columnVerticalAlignments[selectedCol] === 'bottom' || !columnVerticalAlignments[selectedCol] ? 'var(--primary)' : 'var(--card-bg)'}} onClick={() => setColumnVerticalAlignment && setColumnVerticalAlignment(selectedCol, 'bottom')}>Bottom</button>
             <span style={{borderLeft: '1px solid var(--border-color)', height: '20px', margin: '0 0.5rem'}}></span>
-            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: (hiddenColumnGroup || {})[selectedCol] ? 'var(--success)' : 'var(--card-bg)', color: (hiddenColumnGroup || {})[selectedCol] ? '#fff' : '#a1a1aa', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-color)'}} onClick={() => toggleGroup(selectedCol)}>
-               {(hiddenColumnGroup || {})[selectedCol] ? 'In Hide Group' : 'Add to Hide Group'}
+            <button className="btn" style={{padding: '0.25rem 0.6rem', fontSize: '0.8rem', background: (hiddenColumnGroup || {})[selectedCol] ? '#10b981' : 'var(--card-bg)', color: (hiddenColumnGroup || {})[selectedCol] ? '#fff' : '#a1a1aa', display: 'flex', alignItems: 'center', gap: '0.25rem', border: (hiddenColumnGroup || {})[selectedCol] ? '1px solid #10b981' : '1px solid var(--border-color)', fontWeight: (hiddenColumnGroup || {})[selectedCol] ? 'bold' : 'normal', cursor: 'pointer'}} onClick={() => toggleGroup(selectedCol)}>
+               {(hiddenColumnGroup || {})[selectedCol] ? '✓ In Hide Group (Click to remove)' : '+ Add to Hide Group'}
             </button>
-            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: 'var(--card-bg)', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-color)'}} onClick={() => hideColumn(selectedCol)}>
+            <button className="btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem', background: 'var(--card-bg)', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-color)', cursor: 'pointer'}} onClick={() => hideColumn(selectedCol)}>
                <EyeOff size={14} /> Hide Column
             </button>
             <button onClick={() => setSelectedCol(null)} style={{marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 0.5rem'}}>✕</button>
