@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import useStore from '../store';
-import { evaluateRow } from '../ffp-logic';
+import React, { useState, useMemo } from 'react';
+import useStore, { flushStorage } from '../store';
+import { evaluateRow, buildMasterIndexes } from '../ffp-logic';
 import { Copy, Plus, Trash2, Eye, EyeOff, Undo2, Redo2, ChevronDown, ChevronUp } from 'lucide-react';
 import { arrayToTSV } from '../utils';
 
@@ -288,14 +288,19 @@ function FFPPage() {
   };
 
 
-  // Compute live data 
-  const liveData = ffpManualData.map(manualRow => {
-     let newRow = [...manualRow];
-     // Expand array to 47 if it's not
-     while(newRow.length < 47) newRow.push("");
-     // Calculate
-     return evaluateRow(newRow, masterData);
-  });
+  // Build indexed master lookup structures once (rebuilt only when masterData changes)
+  const masterIndexes = useMemo(() => {
+    return buildMasterIndexes(masterData);
+  }, [masterData]);
+
+  // Compute live data with indexed lookups (instant O(1) evaluation)
+  const liveData = useMemo(() => {
+    return ffpManualData.map(manualRow => {
+      let newRow = [...manualRow];
+      while (newRow.length < 47) newRow.push("");
+      return evaluateRow(newRow, masterData, masterIndexes);
+    });
+  }, [ffpManualData, masterData, masterIndexes]);
 
   const handleCellChange = (rowIndex, colIndex, value) => {
     // Get latest state directly to prevent stale closures during fast typing
@@ -428,13 +433,17 @@ function FFPPage() {
      }
   };
 
-  const plotCount = liveData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
+  const plotCount = useMemo(() => {
+    return liveData.filter(row => row[11] && row[11].toString().trim() !== "" && row[11] !== ".").length;
+  }, [liveData]);
 
-  const totalBalance = liveData.reduce((sum, row) => {
-     if (!row[11] || row[11].toString().trim() === "" || row[11] === ".") return sum;
-     let val = String(row[37] || "0").replace(/,/g, '');
-     return sum + (parseFloat(val) || 0);
-  }, 0);
+  const totalBalance = useMemo(() => {
+    return liveData.reduce((sum, row) => {
+      if (!row[11] || row[11].toString().trim() === "" || row[11] === ".") return sum;
+      let val = String(row[37] || "0").replace(/,/g, '');
+      return sum + (parseFloat(val) || 0);
+    }, 0);
+  }, [liveData]);
 
   React.useEffect(() => {
     if (totalBalance > 5000000 && !hasAlerted) {
@@ -831,14 +840,9 @@ function FFPPage() {
                        if (cIndex === 37) { // 38th column (0-indexed 37) -> Balance
                            const sheetNo = row[5]; // 6th column (0-indexed 5) -> Sheet No
                            if (sheetNo && sheetNo.toString().trim() !== "" && sheetNo !== ".") {
-                               const ffpSummaryData = masterData['FFP Summary'] || [];
-                               // Find row in FFP Summary where 4th column (index 3) matches Sheet No
-                               const summaryRow = ffpSummaryData.find(sRow => {
-                                   return sRow[3] !== undefined && sRow[3] !== null && sRow[3].toString().trim() === sheetNo.toString().trim();
-                               });
-                               
-                               if (summaryRow) {
-                                   const bankedAmount = parseFloat(String(summaryRow[14] || "0").replace(/,/g, '')); // 15th column (index 14) -> Banked Amount
+                               const summaryItem = masterIndexes?.ffpSummaryBySheetNo?.get(sheetNo.toString().trim());
+                               if (summaryItem) {
+                                   const bankedAmount = parseFloat(String(summaryItem.bankedAmount || "0").replace(/,/g, ''));
                                    const balanceAmount = parseFloat(String(cellVal || "0").replace(/,/g, ''));
                                    
                                    if (!isNaN(bankedAmount) && !isNaN(balanceAmount)) {
@@ -864,7 +868,7 @@ function FFPPage() {
                                 <input 
                                    id={`cell-${rIndex}-${cIndex}`}
                                    type="text" 
-                                   value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] || (typeof cellVal === 'number' ? (Math.abs(cellVal) < 0.0001 ? (0).toFixed(cIndex === 15 ? 4 : 2) : cellVal.toFixed(cIndex === 15 ? 4 : 2)) : String(cellVal).replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
+                                   value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] !== undefined && ffpManualData[rIndex]?.[cIndex] !== null ? ffpManualData[rIndex][cIndex] : (typeof cellVal === 'number' ? (Math.abs(cellVal) < 0.0001 ? (0).toFixed(cIndex === 15 ? 4 : 2) : cellVal.toFixed(cIndex === 15 ? 4 : 2)) : String(cellVal || "").replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
                                    placeholder=""
                                    autoFocus={false}
                                    autoComplete="off"
@@ -873,6 +877,7 @@ function FFPPage() {
                                    onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
                                    onBlur={() => {
                                       setFocusedCell(null);
+                                      flushStorage();
                                       const currentData = useStore.getState().ffpManualData;
                                       if (history.length === 0 || history[historyIndex] !== currentData) {
                                          let newHistory = history.slice(0, historyIndex + 1);

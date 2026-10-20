@@ -2,6 +2,65 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import idbStorage from './idb-storage';
 
+let pendingSaveTimeout = null;
+let pendingState = null;
+
+export const flushStorage = async () => {
+  if (pendingSaveTimeout) {
+    clearTimeout(pendingSaveTimeout);
+    pendingSaveTimeout = null;
+  }
+  if (pendingState !== null) {
+    const toSave = pendingState;
+    pendingState = null;
+    await idbStorage.setItem('ffp-storage', toSave);
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    flushStorage();
+  });
+}
+
+const debouncedAsyncStorage = {
+  getItem: async (name) => {
+    if (pendingState !== null && name === 'ffp-storage') {
+      return pendingState;
+    }
+    const data = await idbStorage.getItem(name);
+    if (!data) return null;
+    if (typeof data === 'string') {
+      try {
+        return JSON.parse(data);
+      } catch {
+        return null;
+      }
+    }
+    return data;
+  },
+  setItem: (name, value) => {
+    if (name !== 'ffp-storage') {
+      return idbStorage.setItem(name, value);
+    }
+    pendingState = value;
+    if (pendingSaveTimeout) {
+      clearTimeout(pendingSaveTimeout);
+    }
+    pendingSaveTimeout = setTimeout(() => {
+      flushStorage();
+    }, 800);
+  },
+  removeItem: async (name) => {
+    if (pendingSaveTimeout) {
+      clearTimeout(pendingSaveTimeout);
+      pendingSaveTimeout = null;
+    }
+    pendingState = null;
+    await idbStorage.removeItem(name);
+  }
+};
+
 const useStore = create(
   persist(
     (set) => ({
@@ -67,7 +126,7 @@ const useStore = create(
     }),
     {
       name: 'ffp-storage',
-      storage: createJSONStorage(() => idbStorage),
+      storage: debouncedAsyncStorage,
     }
   )
 );
