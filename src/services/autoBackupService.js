@@ -120,7 +120,8 @@ export const performBackup = async (source = 'manual_test', isUserGesture = true
     columnAlignments: state.columnAlignments,
     columnVerticalAlignments: state.columnVerticalAlignments,
     hiddenColumns: state.hiddenColumns,
-    hiddenColumnGroup: state.hiddenColumnGroup
+    hiddenColumnGroup: state.hiddenColumnGroup,
+    showHideGroupBar: state.showHideGroupBar !== undefined ? state.showHideGroupBar : true
   };
 
   const jsonString = JSON.stringify(backupObject, null, 2);

@@ -28,24 +28,35 @@ const COL_NAMES = Array.from({ length: 47 }, (_, i) => {
 const CALCULATED_COLS = [];
 
 function FFPPage() {
-  const { masterData, ffpManualData, setFfpData, addToBackupData, columnWidths, setColumnWidths, customHeaders, setCustomHeader, columnAlignments, setColumnAlignment, columnVerticalAlignments, setColumnVerticalAlignment, hiddenColumns, setHiddenColumns, hiddenColumnGroup, setHiddenColumnGroup } = useStore();
+  const { 
+    masterData, 
+    ffpManualData, 
+    setFfpData, 
+    addToBackupData, 
+    columnWidths, 
+    setColumnWidths, 
+    customHeaders, 
+    setCustomHeader, 
+    columnAlignments, 
+    setColumnAlignment, 
+    columnVerticalAlignments, 
+    setColumnVerticalAlignment, 
+    hiddenColumns, 
+    setHiddenColumns, 
+    hiddenColumnGroup, 
+    setHiddenColumnGroup,
+    showHideGroupBar,
+    setShowHideGroupBar
+  } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [hasAlerted, setHasAlerted] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [showHideGroupBar, setShowHideGroupBar] = useState(() => {
-    const saved = localStorage.getItem('ffp_show_hide_group_bar');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
 
   const toggleHideGroupBar = () => {
-    setShowHideGroupBar(prev => {
-      const next = !prev;
-      localStorage.setItem('ffp_show_hide_group_bar', JSON.stringify(next));
-      return next;
-    });
+    setShowHideGroupBar(prev => !prev);
   };
 
   React.useEffect(() => {

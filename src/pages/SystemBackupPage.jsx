@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import useStore from '../store';
+import useStore, { flushStorage } from '../store';
 import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2, Clock, Folder, FolderCheck, Play, RefreshCw, KeyRound, RotateCcw } from 'lucide-react';
 import { 
   getAutoBackupConfig, 
@@ -12,18 +12,35 @@ import {
 } from '../services/autoBackupService';
 
 function SystemBackupPage() {
-  const { masterData, ffpManualData, backupData, setAllMasterData, setFfpData, setBackupData } = useStore();
+  const { 
+    masterData, 
+    ffpManualData, 
+    backupData, 
+    columnWidths,
+    customHeaders,
+    columnAlignments,
+    columnVerticalAlignments,
+    hiddenColumns,
+    hiddenColumnGroup,
+    showHideGroupBar,
+    setAllMasterData, 
+    setFfpData, 
+    setBackupData,
+    restoreAllLayoutSettings
+  } = useStore();
   
   const [selectedForBackup, setSelectedForBackup] = useState({
     ffpData: true,
     masterData: true,
-    backupData: true
+    backupData: true,
+    layoutSettings: true
   });
 
   const [selectedForRestore, setSelectedForRestore] = useState({
     ffpData: true,
     masterData: true,
-    backupData: true
+    backupData: true,
+    layoutSettings: true
   });
 
   const [restoreFile, setRestoreFile] = useState(null);
@@ -162,6 +179,16 @@ function SystemBackupPage() {
     if (selectedForBackup.masterData) backupObject.masterData = masterData;
     if (selectedForBackup.backupData) backupObject.backupData = backupData;
 
+    if (selectedForBackup.layoutSettings) {
+      backupObject.columnWidths = columnWidths;
+      backupObject.customHeaders = customHeaders;
+      backupObject.columnAlignments = columnAlignments;
+      backupObject.columnVerticalAlignments = columnVerticalAlignments;
+      backupObject.hiddenColumns = hiddenColumns;
+      backupObject.hiddenColumnGroup = hiddenColumnGroup;
+      backupObject.showHideGroupBar = showHideGroupBar !== undefined ? showHideGroupBar : true;
+    }
+
     const jsonString = JSON.stringify(backupObject, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -192,27 +219,77 @@ function SystemBackupPage() {
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target.result);
         
         let restoredCount = 0;
+        let restoredDetails = [];
 
         if (selectedForRestore.ffpData && data.ffpManualData) {
           setFfpData(data.ffpManualData);
           restoredCount++;
+          restoredDetails.push("FFP Data");
         }
         if (selectedForRestore.masterData && data.masterData) {
           setAllMasterData(data.masterData);
           restoredCount++;
+          restoredDetails.push("Master Data");
         }
         if (selectedForRestore.backupData && data.backupData) {
           setBackupData(data.backupData);
           restoredCount++;
+          restoredDetails.push("Backup Data");
         }
 
+        if (selectedForRestore.layoutSettings) {
+          let hasSettings = false;
+          const settingsToRestore = {};
+
+          if (data.columnWidths && Array.isArray(data.columnWidths)) {
+            settingsToRestore.columnWidths = data.columnWidths;
+            hasSettings = true;
+          }
+          if (data.hiddenColumns !== undefined) {
+            settingsToRestore.hiddenColumns = data.hiddenColumns || {};
+            hasSettings = true;
+          }
+          if (data.hiddenColumnGroup !== undefined) {
+            settingsToRestore.hiddenColumnGroup = data.hiddenColumnGroup || {};
+            hasSettings = true;
+          }
+          if (data.customHeaders !== undefined) {
+            settingsToRestore.customHeaders = data.customHeaders || {};
+            hasSettings = true;
+          }
+          if (data.columnAlignments !== undefined) {
+            settingsToRestore.columnAlignments = data.columnAlignments || {};
+            hasSettings = true;
+          }
+          if (data.columnVerticalAlignments !== undefined) {
+            settingsToRestore.columnVerticalAlignments = data.columnVerticalAlignments || {};
+            hasSettings = true;
+          }
+          if (data.showHideGroupBar !== undefined) {
+            settingsToRestore.showHideGroupBar = data.showHideGroupBar;
+            hasSettings = true;
+          }
+
+          if (hasSettings) {
+            restoreAllLayoutSettings(settingsToRestore);
+            restoredCount++;
+            restoredDetails.push("Columns Width, Hidden Columns & Settings");
+          }
+        }
+
+        // Flush immediately to IndexedDB
+        await flushStorage();
+
         if (restoredCount > 0) {
-          setRestoreStatus({ type: 'success', message: `Successfully restored ${restoredCount} section(s)!` });
+          setRestoreStatus({ 
+            type: 'success', 
+            message: `Successfully restored ${restoredCount} section(s): ${restoredDetails.join(', ')}!` 
+          });
         } else {
           setRestoreStatus({ type: 'error', message: 'No sections were selected or found in the backup file.' });
         }
@@ -456,12 +533,21 @@ function SystemBackupPage() {
               <input type="checkbox" checked={selectedForBackup.backupData} onChange={() => handleBackupToggle('backupData')} style={{ width: '18px', height: '18px', accentColor: 'var(--accent)' }} />
               <span style={{ fontSize: '1.1rem' }}>Cleared Backup Data</span>
             </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={selectedForBackup.layoutSettings} onChange={() => handleBackupToggle('layoutSettings')} style={{ width: '18px', height: '18px', accentColor: 'var(--accent)', marginTop: '3px' }} />
+              <div>
+                <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>Columns' Width & Settings</span>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Hidden columns, group columns, column widths, alignments & toolbar settings
+                </div>
+              </div>
+            </label>
           </div>
 
           <button 
             className="btn btn-primary" 
             onClick={handleDownloadBackup}
-            disabled={!selectedForBackup.ffpData && !selectedForBackup.masterData && !selectedForBackup.backupData}
+            disabled={!selectedForBackup.ffpData && !selectedForBackup.masterData && !selectedForBackup.backupData && !selectedForBackup.layoutSettings}
             style={{ alignSelf: 'flex-start', marginTop: 'auto' }}
           >
             <Download size={18} /> Download JSON Backup Now
@@ -497,6 +583,15 @@ function SystemBackupPage() {
               <input type="checkbox" checked={selectedForRestore.backupData} onChange={() => handleRestoreToggle('backupData')} style={{ width: '18px', height: '18px', accentColor: 'var(--success)' }} />
               <span style={{ fontSize: '1.1rem' }}>Restore Cleared Backup Data</span>
             </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={selectedForRestore.layoutSettings} onChange={() => handleRestoreToggle('layoutSettings')} style={{ width: '18px', height: '18px', accentColor: 'var(--success)', marginTop: '3px' }} />
+              <div>
+                <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>Restore Columns' Width & Settings</span>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Restores hidden columns, widths, alignments, and toolbar settings from backup
+                </div>
+              </div>
+            </label>
           </div>
 
           {restoreStatus && (
@@ -518,7 +613,7 @@ function SystemBackupPage() {
           <button 
             className="btn btn-success" 
             onClick={handleRestoreBackup}
-            disabled={(!selectedForRestore.ffpData && !selectedForRestore.masterData && !selectedForRestore.backupData) || !restoreFile}
+            disabled={(!selectedForRestore.ffpData && !selectedForRestore.masterData && !selectedForRestore.backupData && !selectedForRestore.layoutSettings) || !restoreFile}
             style={{ alignSelf: 'flex-start', marginTop: 'auto' }}
           >
             <Upload size={18} /> Restore Selected Data

@@ -83,6 +83,12 @@ const useStore = create(
       columnVerticalAlignments: {},
       hiddenColumns: {},
       hiddenColumnGroup: {},
+      showHideGroupBar: (() => {
+        try {
+          const saved = localStorage.getItem('ffp_show_hide_group_bar');
+          return saved !== null ? JSON.parse(saved) : true;
+        } catch { return true; }
+      })(),
       
       setMasterData: (sheetName, data) => set((state) => ({
         masterData: {
@@ -101,14 +107,44 @@ const useStore = create(
       setCustomHeader: (index, value) => set((state) => ({
         customHeaders: { ...state.customHeaders, [index]: value }
       })),
+      setCustomHeaders: (headers) => set({ customHeaders: headers || {} }),
       setColumnAlignment: (index, alignment) => set((state) => ({
         columnAlignments: { ...state.columnAlignments, [index]: alignment }
       })),
+      setColumnAlignments: (alignments) => set({ columnAlignments: alignments || {} }),
       setColumnVerticalAlignment: (index, alignment) => set((state) => ({
         columnVerticalAlignments: { ...state.columnVerticalAlignments, [index]: alignment }
       })),
-      setHiddenColumns: (columns) => set({ hiddenColumns: columns }),
-      setHiddenColumnGroup: (group) => set({ hiddenColumnGroup: group }),
+      setColumnVerticalAlignments: (vertAlignments) => set({ columnVerticalAlignments: vertAlignments || {} }),
+      setHiddenColumns: (columns) => set({ hiddenColumns: columns || {} }),
+      setHiddenColumnGroup: (group) => set({ hiddenColumnGroup: group || {} }),
+      setShowHideGroupBar: (val) => set((state) => {
+        const next = typeof val === 'function' ? val(state.showHideGroupBar) : val;
+        try {
+          localStorage.setItem('ffp_show_hide_group_bar', JSON.stringify(next));
+        } catch (e) {}
+        return { showHideGroupBar: next };
+      }),
+      restoreAllLayoutSettings: (settings) => set((state) => {
+        if (!settings) return {};
+        const nextShowHideGroupBar = settings.showHideGroupBar !== undefined 
+          ? settings.showHideGroupBar 
+          : state.showHideGroupBar;
+        try {
+          if (settings.showHideGroupBar !== undefined) {
+            localStorage.setItem('ffp_show_hide_group_bar', JSON.stringify(settings.showHideGroupBar));
+          }
+        } catch (e) {}
+        return {
+          columnWidths: settings.columnWidths && Array.isArray(settings.columnWidths) ? settings.columnWidths : state.columnWidths,
+          customHeaders: settings.customHeaders !== undefined ? settings.customHeaders : state.customHeaders,
+          columnAlignments: settings.columnAlignments !== undefined ? settings.columnAlignments : state.columnAlignments,
+          columnVerticalAlignments: settings.columnVerticalAlignments !== undefined ? settings.columnVerticalAlignments : state.columnVerticalAlignments,
+          hiddenColumns: settings.hiddenColumns !== undefined ? settings.hiddenColumns : state.hiddenColumns,
+          hiddenColumnGroup: settings.hiddenColumnGroup !== undefined ? settings.hiddenColumnGroup : state.hiddenColumnGroup,
+          showHideGroupBar: nextShowHideGroupBar
+        };
+      }),
       
       clearAllData: () => set({ 
         masterData: { 
@@ -121,7 +157,8 @@ const useStore = create(
         customHeaders: {},
         columnAlignments: {},
         columnVerticalAlignments: {},
-        hiddenColumns: {}
+        hiddenColumns: {},
+        hiddenColumnGroup: {}
       })
     }),
     {
