@@ -1,20 +1,55 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Wifi, WifiOff, ShieldCheck, Download, X, CheckCircle2, Lock, RefreshCw } from 'lucide-react';
+import { Wifi, WifiOff, ShieldCheck, Download, X, CheckCircle2, Lock, ToggleLeft, ToggleRight } from 'lucide-react';
 import { performBackup } from '../services/autoBackupService';
 import { flushStorage, saveOfflineEmergencySnapshot } from '../store';
 
 /**
+ * Checks if the connection is Ethernet (LAN)
+ */
+export function isEthernetConnection() {
+  if (typeof navigator === 'undefined') return false;
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    if (conn.type === 'ethernet' || conn.type === 'wired') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Checks user forced mode or auto Ethernet detection
+ */
+export function getSavedNetworkMode() {
+  try {
+    const saved = localStorage.getItem('ffp_network_mode');
+    if (saved === 'offline') return false;
+    if (saved === 'online') return true;
+  } catch (e) {}
+  // Default: If Ethernet connection is detected, consider it OFFLINE as requested!
+  if (isEthernetConnection()) {
+    return false;
+  }
+  return null; // Auto probe
+}
+
+/**
  * Universal Connectivity Test
- * Uses HTML Image probe (cannot be blocked by CORS or SW) to check real WAN access,
- * and origin fetch to check server connectivity.
+ * Probes real WAN access using fast Image ping.
  */
 export async function testRealConnectivity() {
+  // If user explicitly saved mode or Ethernet detected
+  const mode = getSavedNetworkMode();
+  if (mode === false) {
+    return false; // Treat Ethernet / forced offline as offline!
+  }
+
   // If the browser itself knows it is offline, believe it immediately
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return false;
   }
 
-  // Probe external favicon using Image load
+  // Probe external favicon using Image load with a fast timeout (800ms)
   const probePromise = new Promise((resolve) => {
     let resolved = false;
     const finish = (result) => {
@@ -24,7 +59,7 @@ export async function testRealConnectivity() {
       }
     };
 
-    const timer = setTimeout(() => finish(false), 2000);
+    const timer = setTimeout(() => finish(false), 800);
 
     const img1 = new Image();
     img1.onload = () => {
@@ -32,17 +67,8 @@ export async function testRealConnectivity() {
       finish(true);
     };
     img1.onerror = () => {
-      // Fallback probe
-      const img2 = new Image();
-      img2.onload = () => {
-        clearTimeout(timer);
-        finish(true);
-      };
-      img2.onerror = () => {
-        clearTimeout(timer);
-        finish(false);
-      };
-      img2.src = 'https://www.cloudflare.com/favicon.ico?_p=' + Date.now();
+      clearTimeout(timer);
+      finish(false);
     };
 
     img1.src = 'https://www.google.com/favicon.ico?_p=' + Date.now();
@@ -52,12 +78,14 @@ export async function testRealConnectivity() {
 }
 
 export function NetworkStatusBanner() {
-  const [isOnline, setIsOnline] = useState(true);
-  const [manualOffline, setManualOffline] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => {
+    const saved = getSavedNetworkMode();
+    return saved !== null ? saved : false; // Default to false (Offline) if Ethernet
+  });
   const [showReconnectedAlert, setShowReconnectedAlert] = useState(false);
   const [lastSaved, setLastSaved] = useState(() => new Date().toLocaleTimeString());
   const [isDownloading, setIsDownloading] = useState(false);
-  const effectiveOnlineRef = useRef(true);
+  const effectiveOnlineRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,22 +93,21 @@ export function NetworkStatusBanner() {
     const evaluateAndSync = async () => {
       if (!isMounted) return;
       const detected = await testRealConnectivity();
-      const effectiveOnline = manualOffline ? false : detected;
       
       const prev = effectiveOnlineRef.current;
-      effectiveOnlineRef.current = effectiveOnline;
-      setIsOnline(effectiveOnline);
+      effectiveOnlineRef.current = detected;
+      setIsOnline(detected);
 
       if (typeof window !== 'undefined') {
-        window.__FFP_IS_OFFLINE = !effectiveOnline;
+        window.__FFP_IS_OFFLINE = !detected;
         window.dispatchEvent(new CustomEvent('ffp_network_change', { 
-          detail: { isOnline: effectiveOnline, manual: manualOffline } 
+          detail: { isOnline: detected } 
         }));
       }
 
-      if (prev !== effectiveOnline) {
-        if (!effectiveOnline) {
-          console.warn('[FFP Network] Entered Offline mode. Activating offline data protection and reload lock.');
+      if (prev !== detected) {
+        if (!detected) {
+          console.warn('[FFP Network] Entered Offline mode (Ethernet / No Internet). Data protection active.');
           flushStorage();
           saveOfflineEmergencySnapshot('network_offline');
           setShowReconnectedAlert(false);
@@ -94,10 +121,7 @@ export function NetworkStatusBanner() {
       }
     };
 
-    // Run active check immediately on mount
     evaluateAndSync();
-
-    // Check periodically every 2 seconds
     const interval = setInterval(evaluateAndSync, 2000);
 
     const handleBrowserOnline = () => evaluateAndSync();
@@ -122,7 +146,7 @@ export function NetworkStatusBanner() {
     const handleBeforeUnload = (e) => {
       if (!effectiveOnlineRef.current) {
         e.preventDefault();
-        e.returnValue = 'You are in Offline Mode. Refreshing is disabled to protect your entered data.';
+        e.returnValue = 'You are in Offline Mode (Ethernet). Refreshing is disabled to protect your entered data.';
         return e.returnValue;
       }
     };
@@ -153,7 +177,7 @@ export function NetworkStatusBanner() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [manualOffline]);
+  }, []);
 
   const handleDownloadEmergencyBackup = async () => {
     setIsDownloading(true);
@@ -200,7 +224,7 @@ export function NetworkStatusBanner() {
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>Offline Mode (නෙට්වර්ක් නැත / Airplane Mode)</span>
+                <span>Offline Mode (Ethernet / No Internet)</span>
                 <span style={{
                   background: '#fef08a',
                   color: '#854d0e',
@@ -288,8 +312,23 @@ export function NetworkStatusBanner() {
 }
 
 export function SidebarNetworkBadge() {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => {
+    const saved = getSavedNetworkMode();
+    return saved !== null ? saved : false;
+  });
   const [lastSaved, setLastSaved] = useState(() => new Date().toLocaleTimeString());
+
+  const toggleNetworkMode = () => {
+    const nextMode = !isOnline;
+    setIsOnline(nextMode);
+    try {
+      localStorage.setItem('ffp_network_mode', nextMode ? 'online' : 'offline');
+    } catch (e) {}
+    if (typeof window !== 'undefined') {
+      window.__FFP_IS_OFFLINE = !nextMode;
+      window.dispatchEvent(new CustomEvent('ffp_network_change', { detail: { isOnline: nextMode } }));
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -328,22 +367,42 @@ export function SidebarNetworkBadge() {
       marginTop: 'auto',
       padding: '0.85rem 1rem',
       borderTop: '1px solid var(--border-color)',
-      background: 'rgba(0,0,0,0.2)',
+      background: 'rgba(0,0,0,0.25)',
       fontSize: '0.78rem'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '4px' }}>
-        <span style={{
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          backgroundColor: isOnline ? '#10b981' : '#ef4444',
-          display: 'inline-block',
-          boxShadow: isOnline ? '0 0 8px #10b981' : '0 0 8px #ef4444'
-        }} />
-        <span style={{ fontWeight: 600, color: isOnline ? '#34d399' : '#f87171' }}>
-          {isOnline ? 'Online' : 'Offline Mode'}
+      <div 
+        onClick={toggleNetworkMode}
+        title="Click to toggle between Online and Offline Mode"
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          padding: '4px 6px',
+          borderRadius: '6px',
+          background: isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.15)',
+          border: `1px solid ${isOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.4)'}`,
+          marginBottom: '6px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: isOnline ? '#10b981' : '#ef4444',
+            display: 'inline-block',
+            boxShadow: isOnline ? '0 0 8px #10b981' : '0 0 8px #ef4444'
+          }} />
+          <span style={{ fontWeight: 600, color: isOnline ? '#34d399' : '#f87171', fontSize: '0.8rem' }}>
+            {isOnline ? 'Online' : 'Offline Mode'}
+          </span>
+        </div>
+        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+          Toggle
         </span>
       </div>
+
       <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
         <ShieldCheck size={12} color="#38bdf8" />
         <span>Saved: {lastSaved}</span>
