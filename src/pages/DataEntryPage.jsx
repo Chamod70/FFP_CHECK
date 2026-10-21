@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import useStore from '../store';
+import React, { useState, useRef, useEffect } from 'react';
+import useStore, { flushStorage } from '../store';
 import { parseTSV } from '../utils';
 import * as XLSX from 'xlsx';
 
@@ -7,14 +7,52 @@ const SHEET_NAMES = ['H.COMP', 'MAST', 'WBT', 'WBT2', 'INS', 'EXT', 'RATE', 'DAT
 
 function DataEntryPage() {
   const [activeTab, setActiveTab] = useState(SHEET_NAMES[0]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState(() => {
+    try {
+      return localStorage.getItem(`ffp_draft_master_${SHEET_NAMES[0]}`) || '';
+    } catch {
+      return '';
+    }
+  });
   const { masterData, setMasterData } = useStore();
   const fileInputRef = useRef(null);
 
-  const handleSave = () => {
+  // When switching active tab, load any saved draft for that tab
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem(`ffp_draft_master_${activeTab}`) || '';
+      setInputText(savedDraft);
+    } catch {
+      setInputText('');
+    }
+  }, [activeTab]);
+
+  const handleInputChange = (val) => {
+    setInputText(val);
+    try {
+      if (val.trim()) {
+        localStorage.setItem(`ffp_draft_master_${activeTab}`, val);
+      } else {
+        localStorage.removeItem(`ffp_draft_master_${activeTab}`);
+      }
+    } catch (e) {}
+  };
+
+  const handleClearDraft = () => {
+    setInputText('');
+    try {
+      localStorage.removeItem(`ffp_draft_master_${activeTab}`);
+    } catch (e) {}
+  };
+
+  const handleSave = async () => {
     const parsedData = parseTSV(inputText);
     setMasterData(activeTab, parsedData);
     setInputText('');
+    try {
+      localStorage.removeItem(`ffp_draft_master_${activeTab}`);
+    } catch (e) {}
+    await flushStorage();
     alert(`Data saved for ${activeTab}. Rows added: ${parsedData.length}`);
   };
 
@@ -37,6 +75,7 @@ function DataEntryPage() {
         
         if (json.length > 0) {
           setMasterData(activeTab, json);
+          flushStorage();
           alert(`Success! Uploaded ${json.length} rows to ${activeTab} from file "${file.name}"`);
         } else {
           alert("The file appears to be empty.");
@@ -51,7 +90,7 @@ function DataEntryPage() {
     reader.readAsArrayBuffer(file);
   };
 
-  const handleRunMacro = () => {
+  const handleRunMacro = async () => {
     const wbtUpt = masterData['WBT UPT'] || [];
     const currentWbt = masterData['WBT'] || [];
     const currentDate = masterData['DATE'] || [];
@@ -77,17 +116,16 @@ function DataEntryPage() {
     
     const updatedDate = [...currentDate, [f9Value]];
 
-    // Save back to store
-    // We update multiple keys. setMasterData only handles one at a time, but we can call it twice
-    // or we could add a bulk setter to store. For now, calling twice is fine.
     setMasterData('WBT', updatedWbt);
     setMasterData('DATE', updatedDate);
+    await flushStorage();
 
     alert(`Successfully processed WBT UPT:\n- Added ${rowsToCopy.length} rows to WBT\n- Added date value "${f9Value}" to DATE`);
   };
 
   const activeDataLength = masterData[activeTab]?.length || 0;
   const showMacroButton = activeTab === 'WBT UPT' && activeDataLength > 0;
+  const hasDraft = inputText.trim().length > 0;
 
   return (
     <div className="page-container">
@@ -136,17 +174,54 @@ function DataEntryPage() {
           <em>You can copy columns directly from Excel and paste here.</em>
         </p>
 
+        {hasDraft && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'rgba(56, 189, 248, 0.1)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '6px',
+            padding: '0.5rem 0.85rem',
+            marginBottom: '0.75rem',
+            fontSize: '0.85rem',
+            color: '#38bdf8'
+          }}>
+            <span>💾 Draft auto-saved locally — Even if network drops or page reloads, this text is protected.</span>
+            <button 
+              onClick={handleClearDraft}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#ef4444',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.8rem'
+              }}
+            >
+              Discard Draft
+            </button>
+          </div>
+        )}
+
         <textarea 
           className="tsv-textarea"
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           placeholder="Paste columns from Excel here..."
           rows="15"
         />
 
-        <button className="btn btn-primary" style={{marginTop: '1rem'}} onClick={handleSave}>
-          Save Data to {activeTab}
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', alignItems: 'center' }}>
+          <button className="btn btn-primary" onClick={handleSave}>
+            Save Data to {activeTab}
+          </button>
+          {hasDraft && (
+            <button className="btn" onClick={handleClearDraft} style={{ background: '#334155', color: '#cbd5e1' }}>
+              Clear Draft
+            </button>
+          )}
+        </div>
 
         {activeDataLength > 0 && (
           <div className="preview-box">

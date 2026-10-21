@@ -14,11 +14,92 @@ export const flushStorage = async () => {
     const toSave = pendingState;
     pendingState = null;
     await idbStorage.setItem('ffp-storage', toSave);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ffp_storage_saved', {
+        detail: { timestamp: new Date().toLocaleTimeString() }
+      }));
+    }
   }
 };
 
+export const saveOfflineEmergencySnapshot = async (reason = 'network_offline') => {
+  try {
+    await flushStorage();
+    const raw = await idbStorage.getItem('ffp-storage');
+    if (!raw) return;
+    const now = new Date();
+    const snapshotMeta = {
+      timestamp: now.toISOString(),
+      displayTime: now.toLocaleString(),
+      reason: reason
+    };
+    await idbStorage.setItem('ffp_offline_emergency_snapshot', raw);
+    try {
+      localStorage.setItem('ffp_offline_emergency_snapshot_meta', JSON.stringify(snapshotMeta));
+    } catch (e) {}
+    console.log(`[FFP Offline Protection] Emergency snapshot created at ${snapshotMeta.displayTime} (${reason})`);
+  } catch (err) {
+    console.warn('[FFP Offline Protection] Failed to create emergency snapshot:', err);
+  }
+};
+
+export const getOfflineEmergencySnapshotMeta = () => {
+  try {
+    const raw = localStorage.getItem('ffp_offline_emergency_snapshot_meta');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const restoreOfflineEmergencySnapshot = async () => {
+  const snapshot = await idbStorage.getItem('ffp_offline_emergency_snapshot');
+  if (!snapshot) return false;
+  let parsed = snapshot;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return false;
+    }
+  }
+  const stateData = parsed.state || parsed;
+  if (stateData) {
+    const store = useStore.getState();
+    if (stateData.masterData) store.setAllMasterData(stateData.masterData);
+    if (stateData.ffpManualData) store.setFfpData(stateData.ffpManualData);
+    if (stateData.backupData) store.setBackupData(stateData.backupData);
+    store.restoreAllLayoutSettings(stateData);
+    await flushStorage();
+    return true;
+  }
+  return false;
+};
+
 if (typeof window !== 'undefined') {
+  // Immediately flush to disk and create safety snapshot when network disconnects
+  window.addEventListener('offline', () => {
+    console.warn('[FFP Offline Protection] Network offline event detected! Flushing storage immediately.');
+    flushStorage();
+    saveOfflineEmergencySnapshot('network_offline');
+  });
+
+  // Flush on tab close, page navigation, or backgrounding
   window.addEventListener('beforeunload', () => {
+    flushStorage();
+  });
+
+  window.addEventListener('pagehide', () => {
+    flushStorage();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushStorage();
+    }
+  });
+
+  window.addEventListener('blur', () => {
     flushStorage();
   });
 }

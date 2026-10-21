@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import useStore, { flushStorage } from '../store';
-import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2, Clock, Folder, FolderCheck, Play, RefreshCw, KeyRound, RotateCcw } from 'lucide-react';
+import useStore, { 
+  flushStorage, 
+  saveOfflineEmergencySnapshot, 
+  getOfflineEmergencySnapshotMeta, 
+  restoreOfflineEmergencySnapshot 
+} from '../store';
+import { Download, Upload, CheckSquare, Square, AlertCircle, CheckCircle2, Clock, Folder, FolderCheck, Play, RefreshCw, KeyRound, RotateCcw, ShieldCheck, WifiOff } from 'lucide-react';
 import { 
   getAutoBackupConfig, 
   saveAutoBackupConfig, 
@@ -53,10 +58,39 @@ function SystemBackupPage() {
   const [folderName, setFolderName] = useState('');
   const [autoStatusMessage, setAutoStatusMessage] = useState(null);
   const [isTestingBackup, setIsTestingBackup] = useState(false);
+  const [offlineSnapshotMeta, setOfflineSnapshotMeta] = useState(() => getOfflineEmergencySnapshotMeta());
+  const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
 
   useEffect(() => {
     checkFolderStatus();
+    setOfflineSnapshotMeta(getOfflineEmergencySnapshotMeta());
   }, []);
+
+  const handleCreateManualSafetySnapshot = async () => {
+    await saveOfflineEmergencySnapshot('manual_user_snapshot');
+    setOfflineSnapshotMeta(getOfflineEmergencySnapshotMeta());
+    alert('Local safety snapshot saved successfully!');
+  };
+
+  const handleRestoreOfflineSnapshot = async () => {
+    if (!confirm('Are you sure you want to restore data from the emergency offline snapshot? This will replace your active session with the snapshot.')) {
+      return;
+    }
+    setIsRestoringSnapshot(true);
+    try {
+      const ok = await restoreOfflineEmergencySnapshot();
+      if (ok) {
+        alert('Emergency snapshot restored successfully!');
+        window.location.reload();
+      } else {
+        alert('No offline emergency snapshot was found.');
+      }
+    } catch (e) {
+      alert('Error restoring emergency snapshot: ' + e.message);
+    } finally {
+      setIsRestoringSnapshot(false);
+    }
+  };
 
   const checkFolderStatus = async () => {
     const handle = await getStoredDirectoryHandle();
@@ -308,6 +342,58 @@ function SystemBackupPage() {
       <div className="header" style={{ marginBottom: '2rem' }}>
         <h1 style={{marginTop: 0}}>System Backup & Restore</h1>
         <p>Safely backup all your system data to a single JSON file, schedule daily automatic backups at 4:00 PM, or restore previous data.</p>
+      </div>
+
+      {/* Offline Safety Snapshot Status Card */}
+      <div className="card" style={{ 
+        padding: '1.5rem', 
+        marginBottom: '2rem', 
+        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
+        border: '1px solid rgba(16, 185, 129, 0.3)',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.2)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#34d399' }}>
+            <ShieldCheck size={28} />
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#f8fafc' }}>
+                Offline Protection & Network Loss Safety (නෙට්වර්ක් නැතිවුවත් දත්ත සුරැකීමේ පද්ධතිය)
+              </h2>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.9rem' }}>
+                Even if network connection drops or Wi-Fi disconnects, every keystroke is safely stored in your browser's IndexedDB.
+                {offlineSnapshotMeta ? (
+                  <span style={{ color: '#38bdf8', marginLeft: '6px' }}>
+                    (Last Emergency Snapshot: {offlineSnapshotMeta.displayTime})
+                  </span>
+                ) : (
+                  <span style={{ color: '#94a3b8', marginLeft: '6px' }}>
+                    (Continuous real-time local storage active)
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button 
+              className="btn" 
+              onClick={handleCreateManualSafetySnapshot}
+              style={{ background: '#0284c7', color: '#fff', fontSize: '0.85rem' }}
+            >
+              <ShieldCheck size={16} /> Save Safety Snapshot Now
+            </button>
+            {offlineSnapshotMeta && (
+              <button 
+                className="btn btn-success" 
+                onClick={handleRestoreOfflineSnapshot}
+                disabled={isRestoringSnapshot}
+                style={{ fontSize: '0.85rem' }}
+              >
+                <RotateCcw size={16} /> {isRestoringSnapshot ? 'Restoring...' : 'Restore Emergency Snapshot'}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Daily Automatic Backup Card */}
