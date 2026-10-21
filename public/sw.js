@@ -24,8 +24,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   
-  // Only handle GET requests and http/https schemes
-  if (request.method !== 'GET' || !request.url.startsWith('http')) {
+  // Only handle GET requests strictly on the SAME origin
+  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) {
     return;
   }
 

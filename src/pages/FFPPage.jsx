@@ -64,6 +64,27 @@ function FFPPage() {
       setHistory([ffpManualData]);
       setHistoryIndex(0);
     }
+
+    const handleBeforeUnload = (e) => {
+      const current = useStore.getState().ffpManualData;
+      if (current && current.length > 0) {
+        try {
+          localStorage.setItem('ffp_manual_live_backup', JSON.stringify(current));
+        } catch (err) {}
+      }
+      if (window.__FFP_IS_OFFLINE) {
+        e.preventDefault();
+        e.returnValue = 'You are in Offline Mode. Refreshing is disabled to protect your data.';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
   }, [ffpManualData, history]);
 
   const updateFfpData = (newData) => {
