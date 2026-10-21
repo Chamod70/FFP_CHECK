@@ -50,7 +50,20 @@ function FFPPage() {
   } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
-  const [zoomLevel, setZoomLevel] = useState(100);
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ffp_zoom_level');
+      if (saved) return Number(saved);
+    } catch (e) {}
+    return 80;
+  });
+
+  const changeZoom = (newVal) => {
+    setZoomLevel(newVal);
+    try {
+      localStorage.setItem('ffp_zoom_level', newVal);
+    } catch (e) {}
+  };
   const [hasAlerted, setHasAlerted] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -551,10 +564,10 @@ function FFPPage() {
             marginLeft: '1rem'
          }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>ZOOM</span>
-            <button className="btn" style={{ padding: '0.25rem 0.5rem', minWidth: '30px' }} onClick={() => setZoomLevel(Math.max(50, zoomLevel - 10))}>-</button>
+            <button className="btn" style={{ padding: '0.25rem 0.5rem', minWidth: '30px' }} onClick={() => changeZoom(Math.max(50, zoomLevel - 10))}>-</button>
             <span style={{ minWidth: '45px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }}>{zoomLevel}%</span>
-            <button className="btn" style={{ padding: '0.25rem 0.5rem', minWidth: '30px' }} onClick={() => setZoomLevel(Math.min(200, zoomLevel + 10))}>+</button>
-            <button className="btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }} onClick={() => setZoomLevel(100)}>Reset</button>
+            <button className="btn" style={{ padding: '0.25rem 0.5rem', minWidth: '30px' }} onClick={() => changeZoom(Math.min(200, zoomLevel + 10))}>+</button>
+            <button className="btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }} onClick={() => changeZoom(80)}>Reset</button>
          </div>
       </div>
       
