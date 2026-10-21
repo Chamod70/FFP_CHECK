@@ -1,44 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, ShieldCheck, Download, X, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Wifi, WifiOff, ShieldCheck, Download, X, CheckCircle2, Lock } from 'lucide-react';
 import { performBackup } from '../services/autoBackupService';
 import { flushStorage, saveOfflineEmergencySnapshot } from '../store';
 
+/**
+ * Actively tests internet connectivity.
+ * Avoids false "Online" status in Airplane mode or when virtual adapters/localhost exist.
+ */
+export async function probeRealInternet() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return false;
+  }
+
+  // Fast race: Probe standard connectivity endpoints with short timeouts
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    await fetch('https://www.google.com/generate_204', {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    return true;
+  } catch (e) {
+    try {
+      const controller2 = new AbortController();
+      const timer2 = setTimeout(() => controller2.abort(), 1200);
+      await fetch('https://1.1.1.1/cdn-cgi/trace', {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: controller2.signal
+      });
+      clearTimeout(timer2);
+      return true;
+    } catch (e2) {
+      return false;
+    }
+  }
+}
+
 export function NetworkStatusBanner() {
-  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(true);
   const [showReconnectedAlert, setShowReconnectedAlert] = useState(false);
   const [lastSaved, setLastSaved] = useState(() => new Date().toLocaleTimeString());
   const [isDownloading, setIsDownloading] = useState(false);
+  const isOnlineRef = useRef(true);
 
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      setShowReconnectedAlert(true);
-      // Auto-hide reconnected toast after 6s
-      setTimeout(() => setShowReconnectedAlert(false), 6000);
+    let isMounted = true;
+
+    const updateStatus = (newOnlineState) => {
+      if (!isMounted) return;
+      const prev = isOnlineRef.current;
+      isOnlineRef.current = newOnlineState;
+      setIsOnline(newOnlineState);
+
+      // Keep a global flag for blocking reloads in offline mode
+      if (typeof window !== 'undefined') {
+        window.__FFP_IS_OFFLINE = !newOnlineState;
+        window.dispatchEvent(new CustomEvent('ffp_network_change', { detail: { isOnline: newOnlineState } }));
+      }
+
+      if (prev !== newOnlineState) {
+        if (!newOnlineState) {
+          console.warn('[FFP Network] Entered Offline / Airplane mode! Protection activated.');
+          flushStorage();
+          saveOfflineEmergencySnapshot('network_offline_detected');
+          setShowReconnectedAlert(false);
+        } else {
+          console.log('[FFP Network] Network connection restored!');
+          setShowReconnectedAlert(true);
+          setTimeout(() => {
+            if (isMounted) setShowReconnectedAlert(false);
+          }, 6000);
+        }
+      }
     };
 
-    const handleOffline = () => {
-      setIsOnline(false);
-      setShowReconnectedAlert(false);
-      // Guarantee immediate storage save and emergency snapshot
-      flushStorage();
-      saveOfflineEmergencySnapshot('network_offline_detected');
+    // Run active check immediately
+    probeRealInternet().then(status => updateStatus(status));
+
+    // Active heartbeat probe every 2.5 seconds
+    const interval = setInterval(async () => {
+      const status = await probeRealInternet();
+      updateStatus(status);
+    }, 2500);
+
+    const handleBrowserOnline = async () => {
+      const status = await probeRealInternet();
+      updateStatus(status);
+    };
+
+    const handleBrowserOffline = () => {
+      updateStatus(false);
     };
 
     const handleStorageSaved = (e) => {
-      if (e.detail?.timestamp) {
+      if (e.detail?.timestamp && isMounted) {
         setLastSaved(e.detail.timestamp);
       }
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    // 1. Prevent refresh / closing in Offline Mode via beforeunload
+    const handleBeforeUnload = (e) => {
+      if (!isOnlineRef.current) {
+        e.preventDefault();
+        e.returnValue = 'You are in Offline Mode. Refreshing is disabled to protect your entered data.';
+        return e.returnValue;
+      }
+    };
+
+    // 2. Prevent F5 and Ctrl+R keyboard shortcuts in Offline Mode
+    const handleKeyDown = (e) => {
+      if (!isOnlineRef.current) {
+        if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R'))) {
+          e.preventDefault();
+          e.stopPropagation();
+          alert('Offline mode එකේදී Refresh කිරීම අක්‍රිය කර ඇත (ඔබ ඇතුළත් කළ දත්ත ආරක්ෂා කිරීමට). ඔබේ දත්ත 100% සුරක්ෂිතව පවතී.');
+        }
+      }
+    };
+
+    window.addEventListener('online', handleBrowserOnline);
+    window.addEventListener('offline', handleBrowserOffline);
     window.addEventListener('ffp_storage_saved', handleStorageSaved);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('online', handleBrowserOnline);
+      window.removeEventListener('offline', handleBrowserOffline);
       window.removeEventListener('ffp_storage_saved', handleStorageSaved);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, []);
 
@@ -60,7 +159,7 @@ export function NetworkStatusBanner() {
       {/* Offline Alert Banner */}
       {!isOnline && (
         <div style={{
-          background: 'linear-gradient(90deg, #b91c1c 0%, #991b1b 100%)',
+          background: 'linear-gradient(90deg, #991b1b 0%, #7f1d1d 100%)',
           color: '#fff',
           padding: '0.65rem 1.25rem',
           display: 'flex',
@@ -68,7 +167,7 @@ export function NetworkStatusBanner() {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '0.75rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
           borderBottom: '2px solid #ef4444',
           zIndex: 9998,
           position: 'sticky',
@@ -87,27 +186,30 @@ export function NetworkStatusBanner() {
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>Network Disconnected (Offline Mode)</span>
+                <span>Offline Mode (නෙට්වර්ක් නැත / Airplane Mode)</span>
                 <span style={{
                   background: '#fef08a',
                   color: '#854d0e',
                   fontSize: '0.72rem',
                   padding: '1px 6px',
                   borderRadius: '4px',
-                  fontWeight: 700
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px'
                 }}>
-                  Data Safe
+                  <Lock size={10} /> Refresh Blocked • Data Safe
                 </span>
               </div>
               <div style={{ fontSize: '0.8rem', color: '#fee2e2' }}>
-                You can continue typing safely. All entered data is automatically preserved in your local browser database.
+                ඔබ ඇතුළත් කරන සියලු දත්ත බ්‍රවුසරයේ සුරැකේ. දත්ත ආරක්ෂා කරගැනීම සඳහා පිටුව Refresh වීම ස්වයංක්‍රීයව අවහිර කර ඇත.
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '0.75rem', color: '#fca5a5' }}>
-              Last saved locally: {lastSaved}
+              Saved locally: {lastSaved}
             </span>
             <button
               onClick={handleDownloadEmergencyBackup}
@@ -128,7 +230,7 @@ export function NetworkStatusBanner() {
               }}
             >
               <Download size={14} />
-              {isDownloading ? 'Exporting...' : 'Save File Backup'}
+              {isDownloading ? 'Saving...' : 'Save File Backup'}
             </button>
           </div>
         </div>
@@ -153,9 +255,9 @@ export function NetworkStatusBanner() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <CheckCircle2 size={18} color="#a7f3d0" />
             <div>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Network Connection Restored!</div>
+              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Network Connection Restored (Online)!</div>
               <div style={{ fontSize: '0.8rem', color: '#d1fae5' }}>
-                You are back online. All data entered while offline is completely safe and intact.
+                ඔබ නැවත Network එකට සම්බන්ධ විය. Offline කාලය තුළ ඇතුළත් කළ සියලු දත්ත නොවෙනස්ව සුරක්ෂිතයි.
               </div>
             </div>
           </div>
@@ -172,23 +274,28 @@ export function NetworkStatusBanner() {
 }
 
 export function SidebarNetworkBadge() {
-  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(true);
   const [lastSaved, setLastSaved] = useState(() => new Date().toLocaleTimeString());
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleNetworkChange = (e) => {
+      if (typeof e.detail?.isOnline === 'boolean') {
+        setIsOnline(e.detail.isOnline);
+      }
+    };
+
     const handleStorageSaved = (e) => {
       if (e.detail?.timestamp) setLastSaved(e.detail.timestamp);
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    // Initial sync
+    probeRealInternet().then(status => setIsOnline(status));
+
+    window.addEventListener('ffp_network_change', handleNetworkChange);
     window.addEventListener('ffp_storage_saved', handleStorageSaved);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('ffp_network_change', handleNetworkChange);
       window.removeEventListener('ffp_storage_saved', handleStorageSaved);
     };
   }, []);

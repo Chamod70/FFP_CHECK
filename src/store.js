@@ -13,6 +13,9 @@ export const flushStorage = async () => {
   if (pendingState !== null) {
     const toSave = pendingState;
     pendingState = null;
+    try {
+      localStorage.setItem('ffp_full_state_instant', JSON.stringify(toSave));
+    } catch (e) {}
     await idbStorage.setItem('ffp-storage', toSave);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ffp_storage_saved', {
@@ -109,22 +112,46 @@ const debouncedAsyncStorage = {
     if (pendingState !== null && name === 'ffp-storage') {
       return pendingState;
     }
-    const data = await idbStorage.getItem(name);
-    if (!data) return null;
-    if (typeof data === 'string') {
-      try {
-        return JSON.parse(data);
-      } catch {
-        return null;
+    // 1. Check instant localStorage fallback first
+    let localBackup = null;
+    try {
+      const raw = localStorage.getItem('ffp_full_state_instant');
+      if (raw) localBackup = JSON.parse(raw);
+    } catch (e) {}
+
+    // 2. Read from IndexedDB
+    try {
+      const data = await idbStorage.getItem(name);
+      if (!data) return localBackup;
+      let parsed = data;
+      if (typeof parsed === 'string') {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          return localBackup;
+        }
       }
+      // If localBackup has ffpManualData while IndexedDB has none or older data, prefer localBackup
+      const localManualRows = localBackup?.state?.ffpManualData?.length || 0;
+      const idbManualRows = parsed?.state?.ffpManualData?.length || 0;
+      if (localManualRows > 0 && idbManualRows === 0) {
+        return localBackup;
+      }
+      return parsed;
+    } catch (err) {
+      return localBackup;
     }
-    return data;
   },
   setItem: (name, value) => {
     if (name !== 'ffp-storage') {
       return idbStorage.setItem(name, value);
     }
     pendingState = value;
+    // Synchronously write instant snapshot to localStorage so refresh CANNOT lose it!
+    try {
+      localStorage.setItem('ffp_full_state_instant', JSON.stringify(value));
+    } catch (e) {}
+
     if (pendingSaveTimeout) {
       clearTimeout(pendingSaveTimeout);
     }
@@ -138,6 +165,11 @@ const debouncedAsyncStorage = {
       pendingSaveTimeout = null;
     }
     pendingState = null;
+    try {
+      localStorage.removeItem('ffp_full_state_instant');
+      localStorage.removeItem('ffp_manual_live_backup');
+      localStorage.removeItem('ffp_master_data_live_backup');
+    } catch (e) {}
     await idbStorage.removeItem(name);
   }
 };
@@ -145,18 +177,33 @@ const debouncedAsyncStorage = {
 const useStore = create(
   persist(
     (set) => ({
-      masterData: {
-        'H.COMP': [],
-        'MAST': [],
-        'WBT': [],
-        'WBT2': [],
-        'INS': [],
-        'EXT': [],
-        'RATE': [],
-        'DATE': [],
-        'WBT UPT': []
-      },
-      ffpManualData: [],
+      masterData: (() => {
+        try {
+          const saved = localStorage.getItem('ffp_master_data_live_backup');
+          if (saved) return JSON.parse(saved);
+        } catch (e) {}
+        return {
+          'H.COMP': [],
+          'MAST': [],
+          'WBT': [],
+          'WBT2': [],
+          'INS': [],
+          'EXT': [],
+          'RATE': [],
+          'DATE': [],
+          'WBT UPT': []
+        };
+      })(),
+      ffpManualData: (() => {
+        try {
+          const saved = localStorage.getItem('ffp_manual_live_backup');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          }
+        } catch (e) {}
+        return [];
+      })(),
       backupData: [],
       columnWidths: Array(47).fill(120),
       customHeaders: {},
@@ -171,15 +218,29 @@ const useStore = create(
         } catch { return true; }
       })(),
       
-      setMasterData: (sheetName, data) => set((state) => ({
-        masterData: {
+      setMasterData: (sheetName, data) => set((state) => {
+        const nextMaster = {
           ...state.masterData,
           [sheetName]: data
-        }
-      })),
-      setAllMasterData: (data) => set({ masterData: data }),
+        };
+        try {
+          localStorage.setItem('ffp_master_data_live_backup', JSON.stringify(nextMaster));
+        } catch (e) {}
+        return { masterData: nextMaster };
+      }),
+      setAllMasterData: (data) => {
+        try {
+          localStorage.setItem('ffp_master_data_live_backup', JSON.stringify(data));
+        } catch (e) {}
+        return set({ masterData: data });
+      },
 
-      setFfpData: (data) => set({ ffpManualData: data }),
+      setFfpData: (data) => {
+        try {
+          localStorage.setItem('ffp_manual_live_backup', JSON.stringify(data));
+        } catch (e) {}
+        return set({ ffpManualData: data });
+      },
       setBackupData: (data) => set({ backupData: data }),
       addToBackupData: (newData) => set((state) => ({ 
         backupData: [...state.backupData, ...newData] 
@@ -227,20 +288,27 @@ const useStore = create(
         };
       }),
       
-      clearAllData: () => set({ 
-        masterData: { 
-          'H.COMP': [], 'MAST': [], 'WBT': [], 'WBT2': [], 
-          'INS': [], 'EXT': [], 'RATE': [], 'DATE': [], 'WBT UPT': [] 
-        },
-        ffpManualData: [],
-        backupData: [],
-        columnWidths: Array(47).fill(120),
-        customHeaders: {},
-        columnAlignments: {},
-        columnVerticalAlignments: {},
-        hiddenColumns: {},
-        hiddenColumnGroup: {}
-      })
+      clearAllData: () => {
+        try {
+          localStorage.removeItem('ffp_full_state_instant');
+          localStorage.removeItem('ffp_manual_live_backup');
+          localStorage.removeItem('ffp_master_data_live_backup');
+        } catch (e) {}
+        return set({ 
+          masterData: { 
+            'H.COMP': [], 'MAST': [], 'WBT': [], 'WBT2': [], 
+            'INS': [], 'EXT': [], 'RATE': [], 'DATE': [], 'WBT UPT': [] 
+          },
+          ffpManualData: [],
+          backupData: [],
+          columnWidths: Array(47).fill(120),
+          customHeaders: {},
+          columnAlignments: {},
+          columnVerticalAlignments: {},
+          hiddenColumns: {},
+          hiddenColumnGroup: {}
+        });
+      }
     }),
     {
       name: 'ffp-storage',
