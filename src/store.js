@@ -112,35 +112,52 @@ const debouncedAsyncStorage = {
     if (pendingState !== null && name === 'ffp-storage') {
       return pendingState;
     }
-    // 1. Check instant localStorage fallback first
+    // 1. Check instant localStorage full state fallback
     let localBackup = null;
     try {
       const raw = localStorage.getItem('ffp_full_state_instant');
       if (raw) localBackup = JSON.parse(raw);
     } catch (e) {}
 
-    // 2. Read from IndexedDB
+    // 2. Read direct synchronous ffpManualData backup (guaranteed freshest)
+    let directManualBackup = null;
+    try {
+      const rawManual = localStorage.getItem('ffp_manual_live_backup');
+      if (rawManual) {
+        const parsed = JSON.parse(rawManual);
+        if (Array.isArray(parsed)) directManualBackup = parsed;
+      }
+    } catch (e) {}
+
+    // 3. Read from IndexedDB
+    let idbData = null;
     try {
       const data = await idbStorage.getItem(name);
-      if (!data) return localBackup;
-      let parsed = data;
-      if (typeof parsed === 'string') {
-        try {
-          parsed = JSON.parse(parsed);
-        } catch {
-          return localBackup;
-        }
+      if (data) {
+        idbData = typeof data === 'string' ? JSON.parse(data) : data;
       }
-      // If localBackup has ffpManualData while IndexedDB has none or older data, prefer localBackup
-      const localManualRows = localBackup?.state?.ffpManualData?.length || 0;
-      const idbManualRows = parsed?.state?.ffpManualData?.length || 0;
-      if (localManualRows > 0 && idbManualRows === 0) {
-        return localBackup;
+    } catch (err) {}
+
+    // Base result from idbData or localBackup
+    const result = idbData || localBackup || null;
+    if (!result) {
+      if (directManualBackup && directManualBackup.length > 0) {
+        return { state: { ffpManualData: directManualBackup }, version: 0 };
       }
-      return parsed;
-    } catch (err) {
-      return localBackup;
+      return null;
     }
+
+    // CRITICAL FIX: Ensure ffpManualData is ALWAYS the freshest!
+    // Never allow older IndexedDB data to overwrite newly entered rows on refresh!
+    if (directManualBackup && directManualBackup.length > 0) {
+      if (!result.state) result.state = {};
+      result.state.ffpManualData = directManualBackup;
+    } else if (localBackup?.state?.ffpManualData?.length > 0) {
+      if (!result.state) result.state = {};
+      result.state.ffpManualData = localBackup.state.ffpManualData;
+    }
+
+    return result;
   },
   setItem: (name, value) => {
     if (name !== 'ffp-storage') {
