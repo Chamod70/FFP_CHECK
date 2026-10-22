@@ -6,7 +6,7 @@ import DataEntryPage from './pages/DataEntryPage';
 import BackupPage from './pages/BackupPage';
 import SystemBackupPage from './pages/SystemBackupPage';
 import { checkAndRunAutoBackup } from './services/autoBackupService';
-import { NetworkStatusBanner, SidebarNetworkBadge } from './components/NetworkStatusBanner';
+import { SidebarNetworkBadge } from './components/NetworkStatusBanner';
 import './App.css';
 
 function App() {
@@ -106,7 +106,6 @@ function App() {
         </aside>
         
         <main className="main-content">
-          <NetworkStatusBanner />
           <Routes>
             <Route path="/" element={<Navigate to="/ffp" replace />} />
             <Route path="/ffp" element={<FFPPage />} />
