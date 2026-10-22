@@ -142,7 +142,7 @@ const TableRow = React.memo(function TableRow({
                    onChange={(e) => onCellChange(rIndex, cIndex, e.target.value)}
                    onKeyDown={(e) => onKeyDown(e, rIndex, cIndex)}
                    onFocus={() => onFocus(rIndex, cIndex)}
-                   onBlur={() => onBlur(rIndex, cIndex)}
+                   onBlur={(e) => onBlur(e, rIndex, cIndex)}
                    className="cell-input"
                    style={{
                       textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
@@ -247,6 +247,16 @@ function FFPPage() {
   const [hasAlerted, setHasAlerted] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const isDirtyRef = useRef(false);
+  const historyIndexRef = useRef(historyIndex);
+  React.useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
+
+  const hiddenColumnsRef = useRef(hiddenColumns);
+  React.useEffect(() => {
+    hiddenColumnsRef.current = hiddenColumns;
+  }, [hiddenColumns]);
 
   const toggleHideGroupBar = () => {
     setShowHideGroupBar(prev => !prev);
@@ -529,6 +539,7 @@ function FFPPage() {
   }, [ffpManualData, masterData, masterIndexes]);
 
   const handleCellChange = useCallback((rowIndex, colIndex, value) => {
+    isDirtyRef.current = true;
     setEditingCell({ r: rowIndex, c: colIndex, val: value });
     // Get latest state directly to prevent stale closures during fast typing
     const currentData = useStore.getState().ffpManualData;
@@ -551,22 +562,29 @@ function FFPPage() {
     setEditingCell(null);
   }, []);
 
-  const handleCellBlur = useCallback(() => {
-    setFocusedCell(null);
+  const handleCellBlur = useCallback((e) => {
+    // If moving to another table cell, skip clearing focusedCell to prevent flicker and redundant re-renders
+    const nextTarget = e?.relatedTarget;
+    const isMovingToAnotherCell = nextTarget && nextTarget.id && nextTarget.id.startsWith('cell-');
+    if (!isMovingToAnotherCell) {
+      setFocusedCell(null);
+    }
     setEditingCell(null);
-    flushStorage();
-    const currentData = useStore.getState().ffpManualData;
-    setHistory(prev => {
-      if (prev.length === 0 || prev[prev.length - 1] !== currentData) {
-        let newHistory = prev.slice(0, historyIndex + 1);
+
+    // Only update undo/redo history if an actual edit was made
+    if (isDirtyRef.current) {
+      isDirtyRef.current = false;
+      const currentData = useStore.getState().ffpManualData;
+      const curIdx = historyIndexRef.current;
+      setHistory(prev => {
+        let newHistory = prev.slice(0, curIdx + 1);
         newHistory.push(currentData);
         if (newHistory.length > 50) newHistory = newHistory.slice(newHistory.length - 50);
-        setHistoryIndex(newHistory.length - 1);
         return newHistory;
-      }
-      return prev;
-    });
-  }, [historyIndex]);
+      });
+      setHistoryIndex(prev => Math.min(prev + 1, 49));
+    }
+  }, []);
 
   const handleKeyDown = useCallback((e, rIndex, cIndex) => {
     let newR = rIndex;
@@ -576,6 +594,9 @@ function FFPPage() {
     // Determine if cursor is at the edges of the text to allow left/right navigation
     const isAtStart = target.selectionStart === 0;
     const isAtEnd = target.selectionEnd === target.value.length;
+    const isAllSelected = target.selectionStart === 0 && target.selectionEnd === target.value.length;
+
+    const hidden = hiddenColumnsRef.current || {};
 
     if (e.key === 'ArrowUp') {
        newR -= 1;
@@ -583,15 +604,24 @@ function FFPPage() {
     } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
        newR += 1;
        e.preventDefault();
-    } else if (e.key === 'ArrowLeft' && isAtStart) {
+    } else if (e.key === 'Tab') {
+       if (e.shiftKey) {
+         newC -= 1;
+         while (newC >= 0 && hidden[newC]) newC -= 1;
+       } else {
+         newC += 1;
+         while (newC < 47 && hidden[newC]) newC += 1;
+       }
+       e.preventDefault();
+    } else if (e.key === 'ArrowLeft' && (isAtStart || isAllSelected)) {
        newC -= 1;
-       while (newC >= 0 && (hiddenColumns || {})[newC]) {
+       while (newC >= 0 && hidden[newC]) {
            newC -= 1;
        }
        e.preventDefault();
-    } else if (e.key === 'ArrowRight' && isAtEnd) {
+    } else if (e.key === 'ArrowRight' && (isAtEnd || isAllSelected)) {
        newC += 1;
-       while (newC < 47 && (hiddenColumns || {})[newC]) {
+       while (newC < 47 && hidden[newC]) {
            newC += 1;
        }
        e.preventDefault();
@@ -604,16 +634,15 @@ function FFPPage() {
     if (newR >= 0 && newR < totalRows && newC >= 0 && newC < 47) {
        const nextCell = document.getElementById(`cell-${newR}-${newC}`);
        if (nextCell) {
+         setFocusedCell({ r: newR, c: newC });
+         setEditingCell(null);
          nextCell.focus();
-         // Select the text when navigating, like Excel does
-         setTimeout(() => {
-           if (document.activeElement === nextCell) {
-             nextCell.select();
-           }
-         }, 0);
+         try {
+           nextCell.select();
+         } catch (err) {}
        }
     }
-  }, [hiddenColumns]);
+  }, []);
 
   const addRow = () => {
     updateFfpData([...ffpManualData, Array(47).fill("")]);
