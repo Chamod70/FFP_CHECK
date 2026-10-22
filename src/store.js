@@ -5,11 +5,28 @@ import idbStorage from './idb-storage';
 let pendingSaveTimeout = null;
 let pendingState = null;
 
+let pendingManualBackup = null;
+let pendingManualBackupTimeout = null;
+
+export const flushManualBackup = () => {
+  if (pendingManualBackupTimeout) {
+    clearTimeout(pendingManualBackupTimeout);
+    pendingManualBackupTimeout = null;
+  }
+  if (pendingManualBackup !== null) {
+    try {
+      localStorage.setItem('ffp_manual_live_backup', JSON.stringify(pendingManualBackup));
+    } catch (e) {}
+    pendingManualBackup = null;
+  }
+};
+
 export const flushStorage = async () => {
   if (pendingSaveTimeout) {
     clearTimeout(pendingSaveTimeout);
     pendingSaveTimeout = null;
   }
+  flushManualBackup();
   if (pendingState !== null) {
     const toSave = pendingState;
     pendingState = null;
@@ -164,10 +181,6 @@ const debouncedAsyncStorage = {
       return idbStorage.setItem(name, value);
     }
     pendingState = value;
-    // Synchronously write instant snapshot to localStorage so refresh CANNOT lose it!
-    try {
-      localStorage.setItem('ffp_full_state_instant', JSON.stringify(value));
-    } catch (e) {}
 
     if (pendingSaveTimeout) {
       clearTimeout(pendingSaveTimeout);
@@ -253,9 +266,13 @@ const useStore = create(
       },
 
       setFfpData: (data) => {
-        try {
-          localStorage.setItem('ffp_manual_live_backup', JSON.stringify(data));
-        } catch (e) {}
+        pendingManualBackup = data;
+        if (pendingManualBackupTimeout) {
+          clearTimeout(pendingManualBackupTimeout);
+        }
+        pendingManualBackupTimeout = setTimeout(() => {
+          flushManualBackup();
+        }, 250);
         return set({ ffpManualData: data });
       },
       setBackupData: (data) => set({ backupData: data }),

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import useStore, { flushStorage } from '../store';
 import { evaluateRow, buildMasterIndexes } from '../ffp-logic';
 import { Copy, Plus, Trash2, Eye, EyeOff, Undo2, Redo2, ChevronDown, ChevronUp } from 'lucide-react';
@@ -27,6 +27,185 @@ const COL_NAMES = Array.from({ length: 47 }, (_, i) => {
 // Which columns are strictly calculated? We make them read-only
 const CALCULATED_COLS = [];
 
+const TableRow = React.memo(function TableRow({
+  rIndex,
+  row,
+  manualRow,
+  isFocusedRow,
+  focusedCol,
+  editingVal,
+  columnWidths,
+  columnAlignments,
+  columnVerticalAlignments,
+  hiddenColumns,
+  masterIndexes,
+  formatCell,
+  onCellChange,
+  onKeyDown,
+  onFocus,
+  onBlur,
+  onRemoveRow
+}) {
+  const balance = parseFloat(String(row[37] || "0").replace(/,/g, ''));
+  const isOliverGreen = Math.abs(balance) < 0.01 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
+
+  return (
+    <tr style={isOliverGreen ? { background: '#6B8E23' } : {}}>
+      <td style={{
+        position: 'sticky', 
+        left: 0, 
+        background: '#1e293b', 
+        zIndex: 15, 
+        textAlign: 'center', 
+        minWidth: '60px', 
+        width: '60px', 
+        borderRight: '1px solid var(--border-color)', 
+        display: 'flex', 
+        justifyContent: 'space-around', 
+        alignItems: 'center', 
+        height: '100%', 
+        padding: '4px 0'
+      }}>
+        <button onClick={() => onRemoveRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', width: '100%'}}>
+           <Trash2 size={16} />
+        </button>
+      </td>
+      {row.map((cell, cIndex) => {
+        if ((hiddenColumns || {})[cIndex]) return null;
+        const isCalculated = CALCULATED_COLS.includes(cIndex);
+        let cellVal = cell;
+        if (cellVal === undefined || cellVal === null) cellVal = "";
+        
+        let customBackground = undefined;
+        let customColor = undefined;
+        
+        if (cIndex === 37) { // 38th column (0-indexed 37) -> Balance
+            const sheetNo = row[5]; // 6th column (0-indexed 5) -> Sheet No
+            if (sheetNo && sheetNo.toString().trim() !== "" && sheetNo !== ".") {
+                const summaryItem = masterIndexes?.ffpSummaryBySheetNo?.get(sheetNo.toString().trim());
+                if (summaryItem) {
+                    const bankedAmount = parseFloat(String(summaryItem.bankedAmount || "0").replace(/,/g, ''));
+                    const balanceAmount = parseFloat(String(cellVal || "0").replace(/,/g, ''));
+                    
+                    if (!isNaN(bankedAmount) && !isNaN(balanceAmount)) {
+                        if (Math.abs(bankedAmount - balanceAmount) < 0.01) {
+                            customBackground = '#bae6fd'; // light blue
+                            customColor = '#000'; // black text for contrast
+                        } else {
+                            customBackground = '#fca5a5'; // light red
+                            customColor = '#000'; // black text for contrast
+                        }
+                    }
+                }
+            }
+        }
+
+        const isCellFocused = isFocusedRow && focusedCol === cIndex;
+
+        let displayVal = "";
+        if (isCellFocused) {
+          if (editingVal !== null && editingVal !== undefined) {
+            displayVal = editingVal;
+          } else {
+            const manualVal = manualRow?.[cIndex];
+            if (manualVal !== undefined && manualVal !== null && manualVal !== "") {
+              displayVal = String(manualVal).replace(/,/g, '');
+            } else if (cellVal !== undefined && cellVal !== null && cellVal !== "") {
+              if (typeof cellVal === 'number') {
+                const decimals = cIndex === 15 ? 4 : 2;
+                displayVal = Math.abs(cellVal) < 0.0001 ? (0).toFixed(decimals) : cellVal.toFixed(decimals);
+              } else {
+                displayVal = String(cellVal).replace(/,/g, '');
+              }
+            } else {
+              displayVal = "";
+            }
+          }
+        } else {
+          displayVal = formatCell(rIndex, cIndex, cellVal);
+        }
+
+        return (
+          <td key={cIndex} style={{
+            ...(customBackground ? {background: customBackground} : (isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {})),
+            width: `${columnWidths[cIndex]}px`,
+            position: 'relative'
+          }}>
+             <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
+                <input 
+                   id={`cell-${rIndex}-${cIndex}`}
+                   type="text" 
+                   value={displayVal}
+                   placeholder=""
+                   autoFocus={false}
+                   autoComplete="off"
+                   onChange={(e) => onCellChange(rIndex, cIndex, e.target.value)}
+                   onKeyDown={(e) => onKeyDown(e, rIndex, cIndex)}
+                   onFocus={() => onFocus(rIndex, cIndex)}
+                   onBlur={() => onBlur(rIndex, cIndex)}
+                   className="cell-input"
+                   style={{
+                      textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
+                      verticalAlign: columnVerticalAlignments && columnVerticalAlignments[cIndex] ? columnVerticalAlignments[cIndex] : 'bottom',
+                      outline: 'none',
+                      boxShadow: 'none',
+                      color: customColor ? customColor : (isCalculated ? 'var(--accent)' : '#fff'),
+                      cursor: 'text',
+                      flex: 1,
+                      minWidth: 0,
+                      background: 'transparent'
+                   }}
+                />
+                {cIndex === 11 && cellVal && cellVal.toString().trim() !== "" && cellVal !== "." && (
+                   <button 
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       navigator.clipboard.writeText(cellVal.toString().trim());
+                       const btn = e.currentTarget;
+                       const originalColor = btn.style.color;
+                       btn.style.color = '#10b981'; // Green for success
+                       setTimeout(() => {
+                          if (btn) btn.style.color = originalColor;
+                       }, 1000);
+                     }}
+                     className="mini-copy-btn"
+                     title="Copy Plot No"
+                     style={{
+                       background: 'transparent',
+                       border: 'none',
+                       color: 'var(--accent)',
+                       cursor: 'pointer',
+                       padding: '0 4px',
+                       display: 'flex',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       transition: 'color 0.2s'
+                     }}
+                   >
+                     <Copy size={14} />
+                   </button>
+                )}
+             </div>
+          </td>
+        );
+      })}
+    </tr>
+  );
+}, (prev, next) => {
+  if (prev.rIndex !== next.rIndex) return false;
+  if (prev.row !== next.row) return false;
+  if (prev.manualRow !== next.manualRow) return false;
+  if (prev.isFocusedRow !== next.isFocusedRow) return false;
+  if (prev.focusedCol !== next.focusedCol) return false;
+  if (prev.editingVal !== next.editingVal) return false;
+  if (prev.columnWidths !== next.columnWidths) return false;
+  if (prev.hiddenColumns !== next.hiddenColumns) return false;
+  if (prev.columnAlignments !== next.columnAlignments) return false;
+  if (prev.columnVerticalAlignments !== next.columnVerticalAlignments) return false;
+  if (prev.masterIndexes !== next.masterIndexes) return false;
+  return true;
+});
+
 function FFPPage() {
   const { 
     masterData, 
@@ -49,6 +228,7 @@ function FFPPage() {
     setShowHideGroupBar
   } = useStore();
   const [focusedCell, setFocusedCell] = useState(null);
+  const [editingCell, setEditingCell] = useState(null);
   const [selectedCol, setSelectedCol] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(() => {
     try {
@@ -186,19 +366,11 @@ function FFPPage() {
     setHiddenColumnGroup(newGroup);
   };
 
-  const formatCell = (rIndex, cIndex, val) => {
+  const formatCell = useCallback((rIndex, cIndex, val) => {
      if (val === undefined || val === null) return "";
-     let strValue = String(val);
-     const isFocused = focusedCell?.r === rIndex && focusedCell?.c === cIndex;
-
-      // While focused, let the user type anything.
-      if (isFocused) {
-         return strValue.replace(/,/g, '');
-      }
+     let strValue = String(val).trim();
      
-     // Only clean the display when NOT focused
-     strValue = strValue.trim();
-     // But don't remove dots if they are the only character (manual typing)
+     // Don't remove dots if they are the only character (manual typing)
      if (strValue.length > 1) {
         strValue = strValue.replace(/\.+$/, "").trim();
      }
@@ -212,13 +384,11 @@ function FFPPage() {
 
      // Format date columns: COM /DATE (0), Harvesting Date (4), Date (7)
      if (cIndex === 0 || cIndex === 4 || cIndex === 7) {
-        // If it's a number (Excel serial), convert it
         let p = parseFloat(strValue);
         if (!isNaN(p) && p > 1000) {
            const date = new Date(Math.round((p - 25569) * 86400 * 1000));
            return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
         }
-        // If it's a string date, parse and format it
         const parts = strValue.split('/');
         if (parts.length === 2 || parts.length === 3) {
            let m = parseInt(parts[0]);
@@ -233,13 +403,11 @@ function FFPPage() {
      }
 
      // Format columns 15 through 42 (indices 14 through 41)
-     // Actually rawHeaders[14] is "NIC", 15 is "Extent(HA)"
      if (cIndex < 15 || cIndex > 41) return strValue; 
      
      let cleanVal = strValue.replace(/,/g, '');
      let parsed = parseFloat(cleanVal);
      
-     // If it's a manual "." or similar, don't try to parse and format it
      if (isNaN(parsed)) return strValue;
 
      // Fix negative zero issue by rounding very small values
@@ -258,7 +426,7 @@ function FFPPage() {
      }
 
      return parsed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+  }, []);
 
   const startResizing = (index, e) => {
     e.preventDefault();
@@ -338,16 +506,30 @@ function FFPPage() {
     return buildMasterIndexes(masterData);
   }, [masterData]);
 
+  // Evaluated rows cache (WeakMap) so only modified rows are re-evaluated
+  const evaluatedRowsCache = useRef(new WeakMap());
+  const prevMasterRef = useRef(masterData);
+  if (prevMasterRef.current !== masterData) {
+    prevMasterRef.current = masterData;
+    evaluatedRowsCache.current = new WeakMap();
+  }
+
   // Compute live data with indexed lookups (instant O(1) evaluation)
   const liveData = useMemo(() => {
+    const cache = evaluatedRowsCache.current;
     return ffpManualData.map(manualRow => {
+      let cached = cache.get(manualRow);
+      if (cached) return cached;
       let newRow = [...manualRow];
       while (newRow.length < 47) newRow.push("");
-      return evaluateRow(newRow, masterData, masterIndexes);
+      const evaluated = evaluateRow(newRow, masterData, masterIndexes);
+      cache.set(manualRow, evaluated);
+      return evaluated;
     });
   }, [ffpManualData, masterData, masterIndexes]);
 
-  const handleCellChange = (rowIndex, colIndex, value) => {
+  const handleCellChange = useCallback((rowIndex, colIndex, value) => {
+    setEditingCell({ r: rowIndex, c: colIndex, val: value });
     // Get latest state directly to prevent stale closures during fast typing
     const currentData = useStore.getState().ffpManualData;
     const updatedData = [...currentData];
@@ -362,9 +544,31 @@ function FFPPage() {
     updatedData[rowIndex][colIndex] = value;
     // Update store directly for speed; history is saved on blur
     setFfpData(updatedData);
-  };
+  }, [setFfpData]);
 
-  const handleKeyDown = (e, rIndex, cIndex) => {
+  const handleCellFocus = useCallback((rIndex, cIndex) => {
+    setFocusedCell({ r: rIndex, c: cIndex });
+    setEditingCell(null);
+  }, []);
+
+  const handleCellBlur = useCallback(() => {
+    setFocusedCell(null);
+    setEditingCell(null);
+    flushStorage();
+    const currentData = useStore.getState().ffpManualData;
+    setHistory(prev => {
+      if (prev.length === 0 || prev[prev.length - 1] !== currentData) {
+        let newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(currentData);
+        if (newHistory.length > 50) newHistory = newHistory.slice(newHistory.length - 50);
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+      }
+      return prev;
+    });
+  }, [historyIndex]);
+
+  const handleKeyDown = useCallback((e, rIndex, cIndex) => {
     let newR = rIndex;
     let newC = cIndex;
     const target = e.target;
@@ -395,19 +599,13 @@ function FFPPage() {
        return;
     }
 
-    // Support navigation through all columns (including calculated ones)
-    if (newC !== cIndex) {
-      // Navigation skip logic removed
-    }
-
     // Move to next cell if within bounds
-    if (newR >= 0 && newR < ffpManualData.length && newC >= 0 && newC < 47) {
+    const totalRows = useStore.getState().ffpManualData.length;
+    if (newR >= 0 && newR < totalRows && newC >= 0 && newC < 47) {
        const nextCell = document.getElementById(`cell-${newR}-${newC}`);
        if (nextCell) {
          nextCell.focus();
          // Select the text when navigating, like Excel does
-         // Fix: Only select if this cell is still the active element to prevent 
-         // focus bouncing when keys are pressed rapidly.
          setTimeout(() => {
            if (document.activeElement === nextCell) {
              nextCell.select();
@@ -415,7 +613,7 @@ function FFPPage() {
          }, 0);
        }
     }
-  };
+  }, [hiddenColumns]);
 
   const addRow = () => {
     updateFfpData([...ffpManualData, Array(47).fill("")]);
@@ -426,11 +624,12 @@ function FFPPage() {
     updateFfpData([...ffpManualData, ...newRows]);
   };
 
-  const removeRow = (index) => {
-    const updatedData = [...ffpManualData];
+  const removeRow = useCallback((index) => {
+    const currentData = useStore.getState().ffpManualData;
+    const updatedData = [...currentData];
     updatedData.splice(index, 1);
     updateFfpData(updatedData);
-  };
+  }, [updateFfpData]);
 
   const handleCopyAll = () => {
      const formattedData = liveData.map(row => {
@@ -862,126 +1061,28 @@ function FFPPage() {
                </tr>
             </thead>
             <tbody>
-                {liveData.map((row, rIndex) => {
-                   const balance = parseFloat(String(row[37] || "0").replace(/,/g, ''));
-                   const isOliverGreen = Math.abs(balance) < 0.01 && row[11] && row[11].toString().trim() !== "" && row[11] !== ".";
-                   
-                   return (
-                   <tr key={rIndex} style={isOliverGreen ? { background: '#6B8E23' } : {}}>
-                    <td style={{position: 'sticky', left: 0, background: '#1e293b', zIndex: 15, textAlign: 'center', minWidth: '60px', width: '60px', borderRight: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', height: '100%', padding: '4px 0'}}>
-                      <button onClick={() => removeRow(rIndex)} title="Delete row" style={{background: 'transparent', border:'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', width: '100%'}}>
-                         <Trash2 size={16} />
-                      </button>
-                    </td>
-                    {row.map((cell, cIndex) => {
-                       if ((hiddenColumns || {})[cIndex]) return null;
-                       const isCalculated = CALCULATED_COLS.includes(cIndex);
-                       let cellVal = cell;
-                       if (cellVal === undefined || cellVal === null) cellVal = "";
-                       
-                       let customBackground = undefined;
-                       let customColor = undefined;
-                       
-                       if (cIndex === 37) { // 38th column (0-indexed 37) -> Balance
-                           const sheetNo = row[5]; // 6th column (0-indexed 5) -> Sheet No
-                           if (sheetNo && sheetNo.toString().trim() !== "" && sheetNo !== ".") {
-                               const summaryItem = masterIndexes?.ffpSummaryBySheetNo?.get(sheetNo.toString().trim());
-                               if (summaryItem) {
-                                   const bankedAmount = parseFloat(String(summaryItem.bankedAmount || "0").replace(/,/g, ''));
-                                   const balanceAmount = parseFloat(String(cellVal || "0").replace(/,/g, ''));
-                                   
-                                   if (!isNaN(bankedAmount) && !isNaN(balanceAmount)) {
-                                       if (Math.abs(bankedAmount - balanceAmount) < 0.01) {
-                                           customBackground = '#bae6fd'; // light blue
-                                           customColor = '#000'; // black text for contrast
-                                       } else {
-                                           customBackground = '#fca5a5'; // light red
-                                           customColor = '#000'; // black text for contrast
-                                       }
-                                   }
-                               }
-                           }
-                       }
-
-                       return (
-                          <td key={cIndex} style={{
-                            ...(customBackground ? {background: customBackground} : (isCalculated ? {background: 'rgba(0,0,0,0.2)'} : {})),
-                            width: `${columnWidths[cIndex]}px`,
-                            position: 'relative'
-                          }}>
-                             <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
-                                <input 
-                                   id={`cell-${rIndex}-${cIndex}`}
-                                   type="text" 
-                                   value={(focusedCell?.r === rIndex && focusedCell?.c === cIndex) ? (ffpManualData[rIndex]?.[cIndex] !== undefined && ffpManualData[rIndex]?.[cIndex] !== null ? ffpManualData[rIndex][cIndex] : (typeof cellVal === 'number' ? (Math.abs(cellVal) < 0.0001 ? (0).toFixed(cIndex === 15 ? 4 : 2) : cellVal.toFixed(cIndex === 15 ? 4 : 2)) : String(cellVal || "").replace(/,/g, ''))) : formatCell(rIndex, cIndex, cellVal)} 
-                                   placeholder=""
-                                   autoFocus={false}
-                                   autoComplete="off"
-                                   onChange={(e) => handleCellChange(rIndex, cIndex, e.target.value)}
-                                   onKeyDown={(e) => handleKeyDown(e, rIndex, cIndex)}
-                                   onFocus={() => setFocusedCell({r: rIndex, c: cIndex})}
-                                   onBlur={() => {
-                                      setFocusedCell(null);
-                                      flushStorage();
-                                      const currentData = useStore.getState().ffpManualData;
-                                      if (history.length === 0 || history[historyIndex] !== currentData) {
-                                         let newHistory = history.slice(0, historyIndex + 1);
-                                         newHistory.push(currentData);
-                                         if (newHistory.length > 50) {
-                                            newHistory = newHistory.slice(newHistory.length - 50);
-                                         }
-                                         setHistory(newHistory);
-                                         setHistoryIndex(newHistory.length - 1);
-                                      }
-                                   }}
-                                   className="cell-input"
-                                   style={{
-                                      textAlign: columnAlignments && columnAlignments[cIndex] ? columnAlignments[cIndex] : 'right',
-                                      verticalAlign: columnVerticalAlignments && columnVerticalAlignments[cIndex] ? columnVerticalAlignments[cIndex] : 'bottom',
-                                      outline: 'none',
-                                      boxShadow: 'none',
-                                      color: customColor ? customColor : (isCalculated ? 'var(--accent)' : '#fff'),
-                                      cursor: 'text',
-                                      flex: 1,
-                                      minWidth: 0,
-                                      background: 'transparent'
-                                   }}
-                                />
-                                {cIndex === 11 && cellVal && cellVal.toString().trim() !== "" && cellVal !== "." && (
-                                   <button 
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       navigator.clipboard.writeText(cellVal.toString().trim());
-                                       const btn = e.currentTarget;
-                                       const originalColor = btn.style.color;
-                                       btn.style.color = '#10b981'; // Green for success
-                                       setTimeout(() => {
-                                          if (btn) btn.style.color = originalColor;
-                                       }, 1000);
-                                     }}
-                                     className="mini-copy-btn"
-                                     title="Copy Plot No"
-                                     style={{
-                                       background: 'transparent',
-                                       border: 'none',
-                                       color: 'var(--accent)',
-                                       cursor: 'pointer',
-                                       padding: '0 4px',
-                                       display: 'flex',
-                                       alignItems: 'center',
-                                       justifyContent: 'center',
-                                       transition: 'color 0.2s'
-                                     }}
-                                   >
-                                     <Copy size={14} />
-                                   </button>
-                                )}
-                             </div>
-                          </td>
-                       );
-                    })}
-                  </tr>
-                )})}
+                {liveData.map((row, rIndex) => (
+                  <TableRow
+                    key={rIndex}
+                    rIndex={rIndex}
+                    row={row}
+                    manualRow={ffpManualData[rIndex]}
+                    isFocusedRow={focusedCell?.r === rIndex}
+                    focusedCol={focusedCell?.r === rIndex ? focusedCell.c : null}
+                    editingVal={editingCell && editingCell.r === rIndex ? editingCell.val : null}
+                    columnWidths={columnWidths}
+                    columnAlignments={columnAlignments}
+                    columnVerticalAlignments={columnVerticalAlignments}
+                    hiddenColumns={hiddenColumns}
+                    masterIndexes={masterIndexes}
+                    formatCell={formatCell}
+                    onCellChange={handleCellChange}
+                    onKeyDown={handleKeyDown}
+                    onFocus={handleCellFocus}
+                    onBlur={handleCellBlur}
+                    onRemoveRow={removeRow}
+                  />
+                ))}
                {liveData.length === 0 && (
                  <tr>
                    <td colSpan={100} style={{textAlign: 'center', padding: '3rem'}}>
