@@ -27,13 +27,47 @@ export const flushStorage = async () => {
     pendingSaveTimeout = null;
   }
   flushManualBackup();
-  if (pendingState !== null) {
-    const toSave = pendingState;
-    pendingState = null;
+
+  const store = typeof useStore !== 'undefined' && useStore.getState ? useStore.getState() : null;
+  const currentMaster = store ? store.masterData : null;
+
+  // 1. Always save current master data directly to IndexedDB (no 5MB localStorage limit!)
+  if (currentMaster && typeof currentMaster === 'object' && Object.keys(currentMaster).length > 0) {
+    try {
+      await idbStorage.setItem('ffp_master_data_direct', currentMaster);
+    } catch (e) {
+      console.error('Failed to save master data direct to IDB:', e);
+    }
+  }
+
+  // 2. Prepare full snapshot
+  const toSave = pendingState !== null ? pendingState : (store ? {
+    state: {
+      masterData: store.masterData,
+      ffpManualData: store.ffpManualData,
+      backupData: store.backupData,
+      columnWidths: store.columnWidths,
+      customHeaders: store.customHeaders,
+      columnAlignments: store.columnAlignments,
+      columnVerticalAlignments: store.columnVerticalAlignments,
+      hiddenColumns: store.hiddenColumns,
+      hiddenColumnGroup: store.hiddenColumnGroup,
+      showHideGroupBar: store.showHideGroupBar
+    },
+    version: 0
+  } : null);
+
+  pendingState = null;
+
+  if (toSave) {
     try {
       localStorage.setItem('ffp_full_state_instant', JSON.stringify(toSave));
     } catch (e) {}
-    await idbStorage.setItem('ffp-storage', toSave);
+    try {
+      await idbStorage.setItem('ffp-storage', toSave);
+    } catch (e) {
+      console.error('Failed to save ffp-storage to IDB:', e);
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ffp_storage_saved', {
         detail: { timestamp: new Date().toLocaleTimeString() }
@@ -146,7 +180,16 @@ const debouncedAsyncStorage = {
       }
     } catch (e) {}
 
-    // 3. Read from IndexedDB
+    // 3. Read direct master data from IndexedDB (guaranteed freshest, no 5MB quota limit!)
+    let directMasterBackup = null;
+    try {
+      const dMaster = await idbStorage.getItem('ffp_master_data_direct');
+      if (dMaster && typeof dMaster === 'object' && Object.keys(dMaster).length > 0) {
+        directMasterBackup = dMaster;
+      }
+    } catch (e) {}
+
+    // 4. Read from IndexedDB full storage
     let idbData = null;
     try {
       const data = await idbStorage.getItem(name);
@@ -158,19 +201,32 @@ const debouncedAsyncStorage = {
     // Base result from idbData or localBackup
     const result = idbData || localBackup || null;
     if (!result) {
+      const fallbackState = {};
       if (directManualBackup && directManualBackup.length > 0) {
-        return { state: { ffpManualData: directManualBackup }, version: 0 };
+        fallbackState.ffpManualData = directManualBackup;
+      }
+      if (directMasterBackup) {
+        fallbackState.masterData = directMasterBackup;
+      }
+      if (Object.keys(fallbackState).length > 0) {
+        return { state: fallbackState, version: 0 };
       }
       return null;
+    }
+
+    if (!result.state) result.state = {};
+
+    // CRITICAL FIX: Ensure Master Data is ALWAYS the freshest from direct IndexedDB!
+    // Never allow older snapshot to overwrite newly saved master data on refresh/reload!
+    if (directMasterBackup) {
+      result.state.masterData = directMasterBackup;
     }
 
     // CRITICAL FIX: Ensure ffpManualData is ALWAYS the freshest!
     // Never allow older IndexedDB data to overwrite newly entered rows on refresh!
     if (directManualBackup && directManualBackup.length > 0) {
-      if (!result.state) result.state = {};
       result.state.ffpManualData = directManualBackup;
     } else if (localBackup?.state?.ffpManualData?.length > 0) {
-      if (!result.state) result.state = {};
       result.state.ffpManualData = localBackup.state.ffpManualData;
     }
 
@@ -253,12 +309,15 @@ const useStore = create(
           ...state.masterData,
           [sheetName]: data
         };
+        // Save directly to IndexedDB immediately without quota limits!
+        idbStorage.setItem('ffp_master_data_direct', nextMaster).catch(console.error);
         try {
           localStorage.setItem('ffp_master_data_live_backup', JSON.stringify(nextMaster));
         } catch (e) {}
         return { masterData: nextMaster };
       }),
       setAllMasterData: (data) => {
+        idbStorage.setItem('ffp_master_data_direct', data).catch(console.error);
         try {
           localStorage.setItem('ffp_master_data_live_backup', JSON.stringify(data));
         } catch (e) {}

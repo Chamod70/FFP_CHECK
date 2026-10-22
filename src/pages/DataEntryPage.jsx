@@ -61,7 +61,7 @@ function DataEntryPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = new Uint8Array(event.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
@@ -75,7 +75,7 @@ function DataEntryPage() {
         
         if (json.length > 0) {
           setMasterData(activeTab, json);
-          flushStorage();
+          await flushStorage();
           alert(`Success! Uploaded ${json.length} rows to ${activeTab} from file "${file.name}"`);
         } else {
           alert("The file appears to be empty.");
